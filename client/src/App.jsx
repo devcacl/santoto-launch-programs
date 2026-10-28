@@ -104,7 +104,6 @@ export default function App() {
   const challengeCount = progress.challenges.length;
   const totalChallenges = event?.programs?.reduce((total, program) => total + program.challenges.length, 0) || 0;
   const totalActivities = totalChallenges + (event?.talks?.length || 0);
-  const totalBadges = totalChallenges + (event?.talks?.length ? 1 : 0);
   const percent = totalActivities ? Math.round(((challengeCount + progress.talks.length) / totalActivities) * 100) : 0;
 
   function onRegistered(data) {
@@ -192,6 +191,7 @@ function Welcome({ event, onRegistered, onFeedback }) {
 
 function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, percent, setView, onOpenProgram, onOpenAuditorium, deviceTilt, motionEnabled, onEnableMotion }) {
   const finished = earnedPrograms.length === event.programs.length && auditoriumEarned;
+  const totalBadges = event.programs.reduce((total, program) => total + program.challenges.length, 0) + (event.talks.length ? 1 : 0);
   return <main className="page-wrap journey-page">
     <section className="journey-hero"><div className="journey-copy"><p className="eyebrow"><Sparkles size={15} /> PASAPORTE EXPLORADOR</p><h1>¡Hola, {user.first_name}!<br /><span>Tommy te acompaña.</span></h1><p>Sigue el mapa, completa misiones individuales y colecciona insignias.</p></div><div className="progress-orbit" style={{ '--progress': `${percent}%` }}><div className="orbit-inner"><strong>{percent}%</strong><span>de tu misión</span></div><Sparkles className="orbit-star" size={17} /></div></section>
     <div className="passport-strip"><div className="passport-stamp"><Sparkles size={17} /></div><div className="passport-copy"><strong>Pasaporte de {user.first_name}</strong><span>{progress.badges.length} de {totalBadges} insignias · {progress.coins} Tommy Coins</span></div><div className="passport-progress"><span style={{ width: `${percent}%` }} /></div><div className="coin-counter passport-coins"><Coins size={18} /><strong>{progress.coins}</strong><span>Tommy Coins</span></div></div>
