@@ -1,0 +1,50 @@
+{
+  "university": "Universidad Santo Tomás · Seccional Tunja",
+  "eventName": "Nuevos caminos, nuevas ideas",
+  "edition": "Experiencia de lanzamiento",
+  "intro": "Descubre dos formas de transformar el mundo. Explora, juega y encuentra tu próximo camino.",
+  "privacyUrl": "https://santototunja.edu.co/politica-de-proteccion-de-datos",
+  "programs": [
+    {
+      "id": "nutrition",
+      "name": "Nutrición y Dietética",
+      "shortName": "Nutrición",
+      "tagline": "Bienestar que empieza en cada decisión.",
+      "description": "Explora cómo la alimentación, la salud y las comunidades se conectan.",
+      "icon": "leaf",
+      "tone": "mint",
+      "badge": "Agente de bienestar",
+      "challenges": [
+        { "id": "plate", "title": "Un plato con propósito", "type": "choice", "prompt": "En una jornada comunitaria, ¿qué hace que un menú sea más equilibrado?", "options": ["Combinar alimentos variados y considerar el contexto de las personas", "Elegir siempre un solo alimento de moda", "Ofrecer la misma porción sin importar la actividad"], "answer": 0, "feedback": "La variedad y el contexto ayudan a proponer opciones de alimentación más pertinentes." },
+        { "id": "community", "title": "Decidir en comunidad", "type": "choice", "prompt": "Una comunidad tiene acceso limitado a alimentos frescos. ¿Cuál sería un primer paso responsable?", "options": ["Escuchar a la comunidad y conocer sus recursos y necesidades", "Publicar una dieta única para todas las familias", "Recomendar productos costosos sin validar su disponibilidad"], "answer": 0, "feedback": "Las intervenciones útiles comienzan con escucha y comprensión del contexto." },
+        { "id": "safe-food", "title": "Reto: alimento seguro", "type": "choice", "prompt": "Antes de preparar alimentos, ¿qué acción reduce riesgos de contaminación?", "options": ["Lavarse las manos y mantener separadas superficies limpias y crudas", "Usar el mismo cuchillo para todo sin limpiarlo", "Dejar los alimentos perecederos varias horas a temperatura ambiente"], "answer": 0, "feedback": "La higiene y la separación de alimentos son prácticas clave de inocuidad." }
+      ]
+    },
+    {
+      "id": "business-intelligence",
+      "name": "Inteligencia de Negocios",
+      "shortName": "Inteligencia de Negocios",
+      "tagline": "Datos que se convierten en decisiones.",
+      "description": "Usa información, pensamiento crítico y creatividad para resolver retos reales.",
+      "icon": "chart",
+      "tone": "blue",
+      "badge": "Estratega de datos",
+      "challenges": [
+        { "id": "market-choice", "title": "Lee las señales", "type": "choice", "prompt": "Una cafetería vendió más bebidas frías durante tres semanas cálidas. ¿Qué decisión es más razonable?", "options": ["Revisar más datos y probar una promoción pequeña", "Comprar todo el inventario posible sin revisar costos", "Concluir que las bebidas calientes nunca se venderán"], "answer": 0, "feedback": "Los datos orientan hipótesis; conviene validar antes de comprometer recursos." },
+        { "id": "find-pattern", "title": "Detecta el patrón", "type": "choice", "prompt": "Las visitas a una tienda suben, pero las ventas se mantienen iguales. ¿Qué investigarías primero?", "options": ["En qué paso las visitas dejan de convertirse en compras", "Cambiar todos los productos inmediatamente", "Ignorar los datos porque hay más visitantes"], "answer": 0, "feedback": "Un buen análisis identifica dónde está la oportunidad antes de proponer cambios." },
+        { "id": "smart-decision", "title": "Decide con criterio", "type": "choice", "prompt": "Dos campañas tienen resultados similares. ¿Qué criterio adicional puede ayudar a elegir?", "options": ["Costo, público alcanzado y propósito de la organización", "Solo el color del gráfico", "La campaña con más datos aunque no sean relevantes"], "answer": 0, "feedback": "La decisión integra evidencia, contexto y objetivos, no solo volumen de datos." }
+      ]
+    }
+  ],
+  "talks": [
+    { "id": "talk-1", "label": "Charla 1", "title": "Ideas que transforman", "speaker": "Invitado por confirmar" },
+    { "id": "talk-2", "label": "Charla 2", "title": "Decisiones para el futuro", "speaker": "Invitado por confirmar" },
+    { "id": "talk-3", "label": "Charla 3", "title": "Tu camino profesional", "speaker": "Invitado por confirmar" }
+  ],
+  "otherPrograms": [
+    "Administración de Empresas", "Arquitectura", "Contaduría Pública", "Derecho", "Ingeniería Civil",
+    "Ingeniería Electrónica", "Ingeniería Mecánica", "Ingeniería de Sistemas", "Ingeniería de Datos e Inteligencia Artificial",
+    "Marketing Digital", "Negocios Internacionales", "Licenciatura en Español y Lenguas Extranjeras"
+  ],
+  "rewards": { "enabled": false, "description": "Beneficios sujetos a aprobación y términos institucionales." }
+}
