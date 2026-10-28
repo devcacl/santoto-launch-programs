@@ -39,6 +39,51 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 - Selección final del programa de interés.
 - Exportación CSV bajo `GET /api/admin/leads.csv` mediante cabecera `x-admin-key`.
 
+## Pasaporte y controles de experiencia
+
+- El recorrido es individual. Los nodos del mapa se desbloquean en orden por programa; el auditorio aparece al completar las dos misiones.
+- Hay seis minijuegos: construir un plato, armar una canasta con presupuesto, ordenar una secuencia, investigar un tablero, distribuir fichas y crear un titular a partir de métricas.
+- Tommy Coins se suman al completar niveles y charlas. Son puntos simbólicos; no hay premios ni canje asociados.
+- Los sonidos y la vibración son controles opcionales en la barra superior. La vibración depende del dispositivo y navegador.
+- Tommy se muestra con los tres modelos entregados para bienvenida, Nutrición y Dietética e Inteligencia de Negocios.
+- Los requisitos de respuestas correctas se validan en el servidor. La ruta pública de evento no entrega las reglas ni las soluciones.
+
+## Datos de prueba local
+
+Los códigos que vienen en `.env.example` son solamente para desarrollo. En la copia local `.env` puedes usar estos valores:
+
+```text
+DEMO-CHARLA-1
+DEMO-CHARLA-2
+DEMO-CHARLA-3
+```
+
+Usa cada código únicamente en su charla correspondiente. Antes de un evento real, cámbialos por códigos distintos y privados para cada ponente.
+
+Para registrar un lead de prueba, usa por ejemplo:
+
+```text
+Nombre: Camila
+Apellido: Rojas
+Correo: camila.prueba+01@example.com
+Celular: +573001234567 (opcional)
+Ciudad: Tunja (opcional)
+Colegio: Colegio de prueba (opcional)
+```
+
+El correo debe ser único por registro y la autorización de privacidad es obligatoria. La autorización comercial es opcional. Para probar errores en el formulario, intenta un nombre con números, un correo sin formato válido, un celular con menos de siete caracteres o enviar sin autorización de privacidad. El navegador y la API hacen validaciones; la API vuelve a validar aunque se altere el formulario en el cliente.
+
+### Respuestas para completar cada minijuego durante la prueba
+
+- **Construye un plato:** Arroz + Fríjoles + Tomate.
+- **Mercado con presupuesto:** Lentejas + Arepa de maíz + Manzana (10 de 12 fichas).
+- **Ruta del alimento seguro:** Lavarse las manos → separar superficies limpias y alimentos crudos → preparar y servir → refrigerar lo que requiere frío.
+- **El tablero perdido:** Investigar en qué paso se abandonan las compras.
+- **Invierte tus fichas:** 3 en investigar clientes, 4 en probar una idea y 3 en medir resultados.
+- **Un titular con evidencia:** Las ventas aumentaron y las devoluciones bajaron.
+
+Cada registro local agrega información de prueba a la base PostgreSQL. Usa un correo diferente al probar otro registro. Las preferencias de contacto y la preferencia final quedan almacenadas como datos de evento.
+
 ## Antes de producción
 
 - Desplegar la base de datos y API dentro de una cuenta/entorno aprobado por TI; exigir TLS y `COOKIE_SECURE=true`.

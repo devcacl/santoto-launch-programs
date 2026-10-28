@@ -29,10 +29,14 @@ export async function initializeDatabase() {
       participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
       program_id TEXT NOT NULL,
       challenge_id TEXT NOT NULL,
-      answer_index INTEGER NOT NULL,
+      answer_index INTEGER NOT NULL DEFAULT 0,
+      answer_json JSONB NOT NULL,
       completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (participant_id, program_id, challenge_id)
     );
+    ALTER TABLE challenge_completions ADD COLUMN IF NOT EXISTS answer_json JSONB;
+    UPDATE challenge_completions SET answer_json = to_jsonb(answer_index) WHERE answer_json IS NULL;
+    ALTER TABLE challenge_completions ALTER COLUMN answer_json SET NOT NULL;
     CREATE TABLE IF NOT EXISTS talk_attendance (
       participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
       talk_id TEXT NOT NULL,

@@ -24,10 +24,10 @@ app.use('/api', rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: 'draf
 app.use('/api/auth/register', rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false }));
 
 const registrationSchema = z.object({
-  firstName: z.string().trim().min(2).max(80),
-  lastName: z.string().trim().min(2).max(100),
+  firstName: z.string().trim().min(2).max(80).regex(/^[\p{L}\p{M}][\p{L}\p{M}\s'.-]+$/u),
+  lastName: z.string().trim().min(2).max(100).regex(/^[\p{L}\p{M}][\p{L}\p{M}\s'.-]+$/u),
   email: z.string().trim().email().max(254),
-  phone: z.string().trim().max(32).optional().default(''),
+  phone: z.string().trim().max(32).optional().default('').refine((value) => !value || /^\+?[0-9\s()\-]{7,20}$/.test(value)),
   school: z.string().trim().max(140).optional().default(''),
   city: z.string().trim().max(100).optional().default(''),
   consentPrivacy: z.literal(true),
@@ -51,11 +51,63 @@ async function getProgress(id) {
     pool.query('SELECT program_id, challenge_id, answer_index, completed_at FROM challenge_completions WHERE participant_id = $1', [id]),
     pool.query('SELECT talk_id, checked_in_at FROM talk_attendance WHERE participant_id = $1', [id]),
   ]);
-  return { challenges: challenges.rows, talks: talks.rows };
+  const completedChallenges = challenges.rows;
+  const completedTalks = talks.rows;
+  const programBadges = config.programs.filter((program) => program.challenges.every((challenge) => completedChallenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id)));
+  const auditoriumBadge = config.talks.length > 0 && config.talks.every((talk) => completedTalks.some((row) => row.talk_id === talk.id));
+  const coins = completedChallenges.length * config.gamification.coinsPerChallenge
+    + completedTalks.length * config.gamification.coinsPerTalk
+    + programBadges.length * config.gamification.coinsPerBadge
+    + (auditoriumBadge ? config.gamification.coinsPerAuditoriumBadge : 0);
+  return { challenges: completedChallenges, talks: completedTalks, coins, badges: [...programBadges.map((program) => program.id), ...(auditoriumBadge ? ['auditorium'] : [])] };
+}
+
+function validChallengeAnswer(challenge, rawAnswer) {
+  const rules = challenge.rules || {};
+  const items = challenge.items || [];
+  const knownIds = new Set(items.map((item) => item.id));
+  if (challenge.type === 'builder' || challenge.type === 'market') {
+    const parsed = z.array(z.string().max(60)).min(1).max(items.length).safeParse(rawAnswer);
+    if (!parsed.success || new Set(parsed.data).size !== parsed.data.length || parsed.data.some((id) => !knownIds.has(id))) return false;
+    const selected = parsed.data.map((id) => items.find((item) => item.id === id));
+    if (selected.length < rules.minItems || (rules.maxItems && selected.length > rules.maxItems)) return false;
+    if (rules.requiredGroups && !rules.requiredGroups.every((group) => selected.some((item) => item.group === group))) return false;
+    if (challenge.type === 'market') {
+      const total = selected.reduce((sum, item) => sum + item.cost, 0);
+      if (total > rules.budget) return false;
+    }
+    return true;
+  }
+  if (challenge.type === 'sequence') {
+    const parsed = z.array(z.string().max(60)).length(items.length).safeParse(rawAnswer);
+    return parsed.success && parsed.data.every((id, index) => id === rules.expectedOrder[index]);
+  }
+  if (challenge.type === 'detective') {
+    return typeof rawAnswer === 'string' && items.some((item) => item.id === rawAnswer) && rawAnswer === rules.answerId;
+  }
+  if (challenge.type === 'allocation') {
+    const parsed = z.record(z.string().max(60), z.number().int().min(0).max(rules.maxPerBucket)).safeParse(rawAnswer);
+    if (!parsed.success) return false;
+    const ids = challenge.buckets.map((bucket) => bucket.id);
+    if (Object.keys(parsed.data).length !== ids.length || ids.some((id) => !(id in parsed.data))) return false;
+    const total = Object.values(parsed.data).reduce((sum, value) => sum + value, 0);
+    return total === rules.total && Object.entries(rules.minByBucket).every(([id, minimum]) => parsed.data[id] >= minimum);
+  }
+  if (challenge.type === 'headline') {
+    return typeof rawAnswer === 'string' && rawAnswer === rules.headline;
+  }
+  return false;
 }
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-app.get('/api/event', (_req, res) => res.json({ event: config }));
+app.get('/api/event', (_req, res) => {
+  const event = structuredClone(config);
+  event.programs = event.programs.map((program) => ({
+    ...program,
+    challenges: program.challenges.map(({ rules, ...challenge }) => challenge),
+  }));
+  res.json({ event });
+});
 
 app.post('/api/auth/register', async (req, res, next) => {
   const parsed = registrationSchema.safeParse(req.body);
@@ -87,30 +139,41 @@ app.post('/api/challenges/:programId/:challengeId/complete', requireParticipant,
   const program = config.programs[programIndex];
   const challengeIndex = program?.challenges.findIndex((challenge) => challenge.id === challengeId) ?? -1;
   const challenge = program?.challenges[challengeIndex];
-  const answer = z.number().int().safeParse(req.body?.answerIndex);
-  if (!challenge || !answer.success) return res.status(400).json({ error: 'Este reto no está disponible.' });
-  if (answer.data !== challenge.answer) return res.status(422).json({ error: 'Esa opción no es la mejor para este reto. Inténtalo de nuevo.' });
+  if (!challenge || !Object.hasOwn(req.body || {}, 'answer')) return res.status(400).json({ error: 'Este reto no está disponible.' });
+  if (!validChallengeAnswer(challenge, req.body.answer)) return res.status(422).json({ error: 'Todavía falta completar una parte de la misión. Revisa tu combinación e inténtalo de nuevo.' });
   try {
     if (challengeIndex > 0) {
       const previous = program.challenges[challengeIndex - 1];
       const result = await pool.query('SELECT 1 FROM challenge_completions WHERE participant_id=$1 AND program_id=$2 AND challenge_id=$3', [req.participantId, programId, previous.id]);
       if (!result.rowCount) return res.status(409).json({ error: 'Completa el reto anterior para continuar.' });
     }
-    await pool.query(`INSERT INTO challenge_completions (participant_id, program_id, challenge_id, answer_index)
-      VALUES ($1,$2,$3,$4) ON CONFLICT (participant_id, program_id, challenge_id) DO NOTHING`, [req.participantId, programId, challengeId, answer.data]);
+    const before = await getProgress(req.participantId);
+    const inserted = await pool.query(`INSERT INTO challenge_completions (participant_id, program_id, challenge_id, answer_index, answer_json)
+      VALUES ($1,$2,$3,0,$4::jsonb) ON CONFLICT (participant_id, program_id, challenge_id) DO NOTHING RETURNING challenge_id`, [req.participantId, programId, challengeId, JSON.stringify(req.body.answer)]);
     const progress = await getProgress(req.participantId);
     const badgeEarned = program.challenges.every((item) => progress.challenges.some((row) => row.program_id === programId && row.challenge_id === item.id));
-    res.json({ success: true, feedback: challenge.feedback, badgeEarned, progress });
+    const earnedProgramBadge = badgeEarned && !before.badges.includes(programId);
+    const coinsAwarded = inserted.rowCount ? config.gamification.coinsPerChallenge + (earnedProgramBadge ? config.gamification.coinsPerBadge : 0) : 0;
+    res.json({ success: true, feedback: challenge.feedback, badgeEarned, coinsAwarded, progress });
   } catch (error) { next(error); }
 });
 
 app.post('/api/talks/:talkId/check-in', requireParticipant, async (req, res, next) => {
   const talk = config.talks.find((item) => item.id === req.params.talkId);
   if (!talk) return res.status(404).json({ error: 'Charla no encontrada.' });
-  if (!process.env.AUDITORIUM_CHECKIN_CODE || req.body?.code !== process.env.AUDITORIUM_CHECKIN_CODE) return res.status(403).json({ error: 'El código de asistencia no es válido.' });
   try {
-    await pool.query('INSERT INTO talk_attendance (participant_id, talk_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.participantId, talk.id]);
-    res.json({ success: true, progress: await getProgress(req.participantId) });
+    const participantProgress = await getProgress(req.participantId);
+    const standsComplete = config.programs.every((program) => program.challenges.every((challenge) => participantProgress.challenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id)));
+    if (!standsComplete) return res.status(409).json({ error: 'Completa las dos misiones de los stands antes de registrar tu pasaporte de charlas.' });
+    let checkInCodes = {};
+    try { checkInCodes = JSON.parse(process.env.AUDITORIUM_CHECKIN_CODES || '{}'); } catch { return res.status(503).json({ error: 'El registro de charlas no está configurado.' }); }
+    if (!checkInCodes[talk.id] || req.body?.code !== checkInCodes[talk.id]) return res.status(403).json({ error: 'Ese código no corresponde a esta charla. Pídele a Tommy la pista correcta.' });
+    const before = await getProgress(req.participantId);
+    const inserted = await pool.query('INSERT INTO talk_attendance (participant_id, talk_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING talk_id', [req.participantId, talk.id]);
+    const nextProgress = await getProgress(req.participantId);
+    const earnedAuditoriumBadge = nextProgress.badges.includes('auditorium') && !before.badges.includes('auditorium');
+    const coinsAwarded = inserted.rowCount ? config.gamification.coinsPerTalk + (earnedAuditoriumBadge ? config.gamification.coinsPerAuditoriumBadge : 0) : 0;
+    res.json({ success: true, coinsAwarded, progress: nextProgress });
   } catch (error) { next(error); }
 });
 
