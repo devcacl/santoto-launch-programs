@@ -17,10 +17,6 @@ async function request(path, options = {}) {
   return contentType.includes('json') ? response.json() : response;
 }
 
-function TommyGuide({ image, children, compact = false }) {
-  return <div className={`tommy-guide ${compact ? 'compact' : ''}`}><div className="tommy-portrait"><img src={image} alt="Tommy, mascota de la Santoto" /></div><div className="tommy-speech"><strong>Tommy dice</strong><p>{children}</p></div></div>;
-}
-
 function Badge({ title, earned, icon }) {
   return <div className={`badge-chip ${earned ? 'is-earned' : ''}`}><span className="badge-icon">{earned ? <Check size={15} /> : icon}</span><span>{title}</span><span className="badge-status">{earned ? 'Lista' : 'Por ganar'}</span></div>;
 }
@@ -40,6 +36,49 @@ export default function App() {
   const [view, setView] = useState('loading');
   const [activeProgram, setActiveProgram] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const [guide, setGuide] = useState(null);
+  const [deviceTilt, setDeviceTilt] = useState({ beta: 0, gamma: 0 });
+  const [motionEnabled, setMotionEnabled] = useState(false);
+
+  async function enableMotion() {
+    if (motionEnabled) return;
+    try {
+      const orientation = window.DeviceOrientationEvent;
+      if (orientation && typeof orientation.requestPermission === 'function') {
+        if (await orientation.requestPermission() !== 'granted') return;
+      }
+      setMotionEnabled(true);
+    } catch { /* Device tilt is an optional enhancement. */ }
+  }
+
+  useEffect(() => {
+    if (!motionEnabled) return undefined;
+    const handleOrientation = (event) => {
+      if (event.beta == null || event.gamma == null) return;
+      setDeviceTilt({ beta: Math.max(-7, Math.min(7, event.beta - 35)), gamma: Math.max(-7, Math.min(7, event.gamma)) });
+    };
+    window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [motionEnabled]);
+
+  useEffect(() => {
+    if (!guide) return undefined;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => document.querySelector('.guide-continue')?.focus(), 0);
+    const keepDialogFocused = (event) => {
+      if (event.key === 'Escape') event.preventDefault();
+      if (event.key === 'Tab') { event.preventDefault(); document.querySelector('.guide-continue')?.focus(); }
+    };
+    document.addEventListener('keydown', keepDialogFocused);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', keepDialogFocused);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus?.();
+    };
+  }, [guide]);
 
   useEffect(() => {
     let alive = true;
@@ -50,7 +89,10 @@ export default function App() {
         setUser(session.participant);
         setProgress(session.progress);
         setView('journey');
-      } else setView('welcome');
+      } else {
+        setView('welcome');
+        setGuide({ title: '¡Hola! Soy Tommy', text: 'Te acompañaré por una misión individual. Visita los dos stands, completa los niveles y al final escucha las charlas. ¿Listo para empezar?', image: data.event.mascot.welcomeImage });
+      }
     }).catch((error) => {
       if (alive) { setLoadError(error.message); setView('unavailable'); }
     });
@@ -62,18 +104,28 @@ export default function App() {
   const challengeCount = progress.challenges.length;
   const totalChallenges = event?.programs?.reduce((total, program) => total + program.challenges.length, 0) || 0;
   const totalActivities = totalChallenges + (event?.talks?.length || 0);
+  const totalBadges = totalChallenges + (event?.talks?.length ? 1 : 0);
   const percent = totalActivities ? Math.round(((challengeCount + progress.talks.length) / totalActivities) * 100) : 0;
 
   function onRegistered(data) {
     setUser(data.participant);
     setProgress(data.progress);
     setView('journey');
+    setGuide({ title: '¡Pasaporte creado!', text: 'Tu recorrido queda guardado con este correo. Completa cada nivel para coleccionar las insignias de Tommy y sumar monedas simbólicas.', image: event.mascot.welcomeImage });
     feedback.feedback('success');
   }
   function updateProgress(data) { setProgress(data.progress); }
-
+  function openProgram(id) {
+    setActiveProgram(id);
+    setView('program');
+  }
+  function openAuditorium() {
+    setView('auditorium');
+    setGuide({ title: 'Misión del auditorio', text: 'Escucha cada charla y, cuando termine, pide al ponente el código de asistencia. Guarda un sello por cada charla para completar esta parte del pasaporte.', image: event.mascot.welcomeImage });
+  }
   if (!event || view === 'loading') return <main className="loading-screen"><div className="loader-mark"><Sparkles size={24} /></div><p>Tommy está preparando tu pasaporte…</p></main>;
   if (view === 'unavailable') return <main className="loading-screen"><CircleHelp size={30} /><h1>No podemos conectar ahora</h1><p>{loadError || 'Vuelve a intentarlo en un momento.'}</p><button className="button button-primary" onClick={() => location.reload()}>Reintentar</button></main>;
+  const tommyGuideImage = view === 'program' ? event.mascot.programImages[activeProgram] || event.mascot.welcomeImage : event.mascot.welcomeImage;
 
   return <div className="app-shell">
     <header className="topbar">
@@ -82,11 +134,13 @@ export default function App() {
     </header>
 
     {view === 'welcome' && <Welcome event={event} onRegistered={onRegistered} onFeedback={feedback.feedback} />}
-    {view === 'journey' && <Journey event={event} user={user} progress={progress} earnedPrograms={earnedPrograms} auditoriumEarned={auditoriumEarned} percent={percent} setView={setView} onOpenProgram={(id) => { setActiveProgram(id); setView('program'); }} />}
-    {view === 'program' && <ProgramDetail key={activeProgram} event={event} program={event.programs.find((program) => program.id === activeProgram)} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
+    {view === 'journey' && <Journey event={event} user={user} progress={progress} earnedPrograms={earnedPrograms} auditoriumEarned={auditoriumEarned} percent={percent} setView={setView} onOpenProgram={openProgram} onOpenAuditorium={openAuditorium} deviceTilt={deviceTilt} motionEnabled={motionEnabled} onEnableMotion={enableMotion} />}
+    {view === 'program' && <ProgramDetail key={activeProgram} event={event} program={event.programs.find((program) => program.id === activeProgram)} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} onGuide={(challenge, currentProgram) => { const key = `challenge:${currentProgram.id}:${challenge.id}`; if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, 'seen'); setGuide({ title: challenge.title, text: currentProgram.guide, image: event.mascot.programImages[currentProgram.id] || event.mascot.welcomeImage }); } }} />}
     {view === 'auditorium' && <Auditorium event={event} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
     {view === 'finish' && <Finish event={event} user={user} progress={progress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
     <footer className="site-footer"><span>Universidad Santo Tomás · Seccional Tunja</span><a href={event.privacyUrl} target="_blank" rel="noreferrer">Privacidad y tratamiento de datos <ArrowRight size={13} /></a></footer>
+    <button type="button" className="tommy-fab" onClick={() => setGuide({ title: 'Aquí estoy para ayudarte', text: 'Avanza por los niveles en orden. Si necesitas una pista, vuelve aquí cuando quieras.', image: tommyGuideImage })} aria-label="Pedir ayuda a Tommy"><img src={tommyGuideImage} alt="" /><span>Tommy</span></button>
+    {guide && <div className="guide-backdrop"><section className="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-title"><div className="guide-dialog-art"><img src={guide.image} alt="Tommy" /></div><div className="guide-dialog-copy"><span className="eyebrow">TOMMY TE CUENTA</span><h2 id="guide-title">{guide.title}</h2><p>{guide.text}</p><button className="button button-primary guide-continue" onClick={() => setGuide(null)}>{view === 'welcome' ? 'Entendido, empezar' : 'Entendido, continuar'} <ArrowRight size={17} /></button><small>El sonido y el movimiento del teléfono son opcionales y se pueden apagar.</small></div></section></div>}
   </div>;
 }
 
@@ -114,7 +168,6 @@ function Welcome({ event, onRegistered, onFeedback }) {
       <p className="eyebrow"><Sparkles size={15} /> {event.edition}</p>
       <h1>Tu futuro<br /><span>empieza explorando.</span></h1>
       <p className="welcome-lede">{event.intro}</p>
-      <TommyGuide image={event.mascot.welcomeImage}>¡Hola! Soy Tommy. Regístrate y te guío por cada misión. Junta Tommy Coins y completa tu pasaporte explorador.</TommyGuide>
       <div className="welcome-highlights"><div><span className="highlight-number">02</span><span>programas<br />por descubrir</span></div><div><span className="highlight-number">06</span><span>misiones<br />interactivas</span></div><div><span className="highlight-number">03</span><span>charlas para<br />inspirarte</span></div></div>
       <div className="program-peek-list">{event.programs.map((program) => <div className={`program-peek ${program.tone}`} key={program.id}><span className="peek-icon">{iconFor(program.icon, 20)}</span><span><strong>{program.name}</strong><small>{program.tagline}</small></span><ArrowRight size={17} /></div>)}</div>
     </section>
@@ -137,18 +190,18 @@ function Welcome({ event, onRegistered, onFeedback }) {
   </main>;
 }
 
-function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, percent, setView, onOpenProgram }) {
+function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, percent, setView, onOpenProgram, onOpenAuditorium, deviceTilt, motionEnabled, onEnableMotion }) {
   const finished = earnedPrograms.length === event.programs.length && auditoriumEarned;
   return <main className="page-wrap journey-page">
     <section className="journey-hero"><div className="journey-copy"><p className="eyebrow"><Sparkles size={15} /> PASAPORTE EXPLORADOR</p><h1>¡Hola, {user.first_name}!<br /><span>Tommy te acompaña.</span></h1><p>Sigue el mapa, completa misiones individuales y colecciona insignias.</p></div><div className="progress-orbit" style={{ '--progress': `${percent}%` }}><div className="orbit-inner"><strong>{percent}%</strong><span>de tu misión</span></div><Sparkles className="orbit-star" size={17} /></div></section>
-    <div className="passport-strip"><div className="passport-stamp"><Sparkles size={17} /></div><div className="passport-copy"><strong>Pasaporte de {user.first_name}</strong><span>{progress.badges.length} de 3 insignias · {progress.coins} Tommy Coins</span></div><div className="passport-progress"><span style={{ width: `${percent}%` }} /></div><div className="coin-counter passport-coins"><Coins size={18} /><strong>{progress.coins}</strong><span>Tommy Coins</span></div></div>
-    <TommyGuide compact image={event.mascot.welcomeImage}>{finished ? '¡Misión cumplida! Elige qué programa quieres conocer mejor.' : 'Sigue el caminito brillante: completa un nivel para abrir el siguiente. ¡Cada reto suma Tommy Coins!'}</TommyGuide>
+    <div className="passport-strip"><div className="passport-stamp"><Sparkles size={17} /></div><div className="passport-copy"><strong>Pasaporte de {user.first_name}</strong><span>{progress.badges.length} de {totalBadges} insignias · {progress.coins} Tommy Coins</span></div><div className="passport-progress"><span style={{ width: `${percent}%` }} /></div><div className="coin-counter passport-coins"><Coins size={18} /><strong>{progress.coins}</strong><span>Tommy Coins</span></div></div>
+    <section className="collection-card side-card"><div className="section-heading compact"><div><p className="eyebrow">TU COLECCIÓN</p><h2>Insignias de Tommy</h2></div><Trophy size={20} /></div><p className="collection-intro">Cada nivel completado desbloquea una insignia que puedes guardar como imagen en tu celular.</p><button type="button" className={`motion-toggle ${motionEnabled ? 'active' : ''}`} onClick={onEnableMotion}><Vibrate size={14} /> {motionEnabled ? 'Movimiento activado' : 'Activar movimiento del teléfono'}</button><div className="badge-gallery">{event.programs.flatMap((program) => program.challenges.map((challenge, index) => { const earned = progress.challenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id); return <MissionBadge key={`${program.id}:${challenge.id}`} title={challenge.title} programName={program.shortName} image={event.mascot.programImages[program.id] || event.mascot.welcomeImage} earned={earned} serial={`${program.id === 'nutrition' ? 'N' : 'I'}-${index + 1}`} tilt={deviceTilt} />; }))}{event.talks.length > 0 && <MissionBadge title="Voz del futuro" programName="Auditorio" image={event.mascot.welcomeImage} earned={auditoriumEarned} serial="A-1" tilt={deviceTilt} />}</div></section>
     <div className="map-heading"><div><p className="eyebrow">TU MAPA DE AVENTURA</p><h2>Una misión, paso a paso</h2></div><span className="count-label">{progress.challenges.length} de {event.programs.reduce((sum, program) => sum + program.challenges.length, 0)} niveles</span></div>
     <section className="adventure-map">
       {event.programs.map((program, programIndex) => <ProgramPath key={program.id} program={program} programIndex={programIndex} progress={progress} onOpen={() => onOpenProgram(program.id)} />)}
-      <AuditoriumMapNode event={event} progress={progress} auditoriumEarned={auditoriumEarned} onOpen={() => setView('auditorium')} />
+      <AuditoriumMapNode event={event} progress={progress} auditoriumEarned={auditoriumEarned} onOpen={onOpenAuditorium} />
     </section>
-    <section className="map-bottom-row"><div className="side-card badge-collection"><div className="section-heading compact"><div><p className="eyebrow">TU COLECCIÓN</p><h2>Insignias</h2></div><Trophy size={20} /></div>{event.programs.map((program) => <Badge key={program.id} title={program.badge} earned={earnedPrograms.includes(program)} icon={iconFor(program.icon, 14)} />)}<Badge title="Voz del futuro" earned={auditoriumEarned} icon={<Mic2 size={14} />} /></div><div className="side-card coin-explainer"><div className="coin-big"><Coins size={25} /></div><p className="eyebrow">TOMMY COINS</p><h3>Un recuerdo de cada logro</h3><p>Ganas monedas simbólicas al completar retos, misiones e intervenciones. Son parte de tu pasaporte y no se canjean por premios.</p><span className="coin-balance"><Coins size={15} /> {progress.coins} acumuladas</span></div></section>
+    <section className="side-card coin-explainer"><div className="coin-big"><Coins size={25} /></div><p className="eyebrow">TOMMY COINS</p><h3>Un recuerdo de cada logro</h3><p>Ganas monedas simbólicas al completar retos, misiones e intervenciones. Son parte de tu pasaporte y no se canjean por premios.</p><span className="coin-balance"><Coins size={15} /> {progress.coins} acumuladas</span></section>
     {finished && <section className="finish-banner"><div><p className="eyebrow">¡PASAPORTE COMPLETO!</p><h2>Tommy tiene una última pregunta</h2><p>¿Cuál programa te gustaría conocer mejor?</p></div><button className="button button-primary" onClick={() => setView('finish')}>Elegir programa <ArrowRight size={17} /></button></section>}
   </main>;
 }
@@ -183,7 +236,48 @@ function AuditoriumMapNode({ event, progress, auditoriumEarned, onOpen }) {
   </article>;
 }
 
-function ProgramDetail({ event, program, progress, updateProgress, onBack, onFeedback }) {
+function MissionBadge({ title, programName, image, earned, serial, tilt }) {
+  async function saveBadge() {
+    if (!earned) return;
+    const art = new Image(); art.src = image;
+    try { await art.decode(); } catch { return; }
+    const canvas = document.createElement('canvas'); canvas.width = 900; canvas.height = 1100;
+    const context = canvas.getContext('2d');
+    const gradient = context.createLinearGradient(0, 0, 900, 1100);
+    gradient.addColorStop(0, '#f5fbf8'); gradient.addColorStop(1, '#e6f1ee');
+    context.fillStyle = gradient; context.fillRect(0, 0, 900, 1100);
+    context.fillStyle = '#12213a'; context.beginPath(); context.roundRect(52, 52, 796, 996, 54); context.fill();
+    context.strokeStyle = '#e7bd56'; context.lineWidth = 16; context.beginPath(); context.arc(450, 420, 296, 0, Math.PI * 2); context.stroke();
+    context.save(); context.beginPath(); context.arc(450, 420, 278, 0, Math.PI * 2); context.clip(); context.drawImage(art, 177, 147, 546, 546); context.restore();
+    context.textAlign = 'center'; context.fillStyle = '#a4ead0'; context.font = '700 30px Arial'; context.fillText(`${programName.toLocaleUpperCase('es')} · INSIGNIA ${serial}`, 450, 790);
+    context.fillStyle = '#ffffff'; context.font = '700 43px Arial';
+    const lines = []; let line = '';
+    for (const word of title.split(' ')) { const next = line ? `${line} ${word}` : word; if (context.measureText(next).width > 680 && line) { lines.push(line); line = word; } else line = next; }
+    if (line) lines.push(line);
+    lines.slice(0, 2).forEach((text, index) => context.fillText(text, 450, 866 + index * 54));
+    context.fillStyle = '#f5cc68'; context.font = '600 26px Arial'; context.fillText('PASAPORTE EXPLORADOR · TOMMY', 450, 1000);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const filename = `insignia-tommy-${serial.toLowerCase()}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        try { await navigator.share({ files: [file], title: `Insignia de Tommy · ${title}` }); return; }
+        catch (error) { if (error.name === 'AbortError') return; }
+      }
+      const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = filename; anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+  }
+  const style = { '--tilt-x': `${tilt.beta * -0.35}deg`, '--tilt-y': `${tilt.gamma * 0.35}deg` };
+  return <article className={`mission-badge ${earned ? 'earned' : 'locked'}`} style={style}>
+    <div className="badge-coin-art"><div className="badge-image-wrap"><img src={image} alt="" /></div><span className="badge-serial">{earned ? serial : <LockKeyhole size={15} />}</span></div>
+    <div className="badge-card-copy"><small>{programName}</small><strong>{title}</strong><span>{earned ? 'Insignia desbloqueada' : 'Completa el nivel para desbloquearla'}</span></div>
+    <button type="button" className="badge-save" disabled={!earned} onClick={saveBadge}>{earned ? 'Guardar en el celular' : 'Bloqueada'}{earned && <ArrowDown size={14} />}</button>
+  </article>;
+}
+
+function ProgramDetail({ event, program, progress, updateProgress, onBack, onFeedback, onGuide }) {
   const [selectedItems, setSelectedItems] = useState([]);
   const [sequence, setSequence] = useState(program?.challenges[0]?.items?.map((item) => item.id) || []);
   const [detectiveChoice, setDetectiveChoice] = useState('');
@@ -206,11 +300,10 @@ function ProgramDetail({ event, program, progress, updateProgress, onBack, onFee
     setAllocation(Object.fromEntries((current.buckets || []).map((bucket) => [bucket.id, 0])));
     setHeadline({ sales: '', returns: '' });
     setError('');
+    onGuide(current, program);
   }, [current?.id]);
 
   if (!program) return null;
-  const image = event.mascot.programImages[program.id] || event.mascot.welcomeImage;
-
   function buildAnswer() {
     if (current.type === 'builder' || current.type === 'market') return selectedItems;
     if (current.type === 'sequence') return sequence;
@@ -236,7 +329,7 @@ function ProgramDetail({ event, program, progress, updateProgress, onBack, onFee
     try {
       const data = await request(`/challenges/${program.id}/${current.id}/complete`, { method: 'POST', body: JSON.stringify({ answer: buildAnswer() }) });
       updateProgress(data);
-      setCelebration({ feedback: data.feedback, badgeEarned: data.badgeEarned });
+      setCelebration({ feedback: data.feedback, badgeEarned: data.badgeEarned, coinsAwarded: data.coinsAwarded });
       onFeedback(data.badgeEarned ? 'success' : 'coin');
     } catch (err) { setError(err.message); onFeedback('tap'); }
     finally { setBusy(false); }
@@ -267,13 +360,12 @@ function ProgramDetail({ event, program, progress, updateProgress, onBack, onFee
   return <main className="page-wrap inner-page"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Volver al mapa</button><div className={`challenge-layout ${program.tone}`}>
     <aside className="challenge-sidebar"><div className="program-symbol large">{iconFor(program.icon, 28)}</div><p className="eyebrow">MISIÓN INDIVIDUAL</p><h1>{program.name}</h1><p>{program.tagline}</p><div className="challenge-steps">{program.challenges.map((item, index) => { const done = completedIds.includes(item.id); const active = item.id === current?.id; return <div key={item.id} className={`challenge-step ${done ? 'complete' : active ? 'active' : ''}`}><span>{done ? <Check size={14} /> : active ? iconFor(program.icon, 13) : <LockKeyhole size={12} />}</span><div><strong>{item.title}</strong><small>{done ? 'Completado' : active ? `${gameLabels[item.type]} · ${item.duration}` : 'Bloqueado'}</small></div></div>; })}</div><Badge title={program.badge} earned={allDone} icon={iconFor(program.icon, 14)} /></aside>
     <section className="challenge-content">
-      {celebration ? <div className="level-celebration"><div className="win-illustration"><Coins size={39} /></div><p className="eyebrow">¡NIVEL COMPLETADO!</p><h2>+{celebration.coinsAwarded} Tommy Coins</h2><p>{celebration.feedback}</p>{celebration.badgeEarned && <div className="new-badge-banner"><Trophy size={18} /><span>¡Insignia desbloqueada: {program.badge}!</span></div>}<button className="button button-primary" onClick={() => setCelebration(null)}>Seguir el mapa <ArrowRight size={17} /></button></div> : allDone ? <div className="challenge-done"><div className="win-illustration"><Trophy size={40} /></div><p className="eyebrow">¡MISIÓN COMPLETADA!</p><h2>Insignia<br /><span>{program.badge}</span></h2><p>Tommy guardó tu logro en el pasaporte. ¡Puedes continuar con la otra misión!</p><button className="button button-primary" onClick={onBack}>Volver al mapa <ArrowRight size={17} /></button></div> : <>
+      {celebration ? <div className="level-celebration"><div className="win-illustration"><Coins size={39} /></div><p className="eyebrow">¡NIVEL COMPLETADO!</p><h2>+{celebration.coinsAwarded} Tommy Coins</h2><p>{celebration.feedback}</p>{celebration.badgeEarned && <div className="new-badge-banner"><Trophy size={18} /><span>¡Insignia de Tommy desbloqueada y guardada en tu colección!</span></div>}<button className="button button-primary" onClick={() => setCelebration(null)}>Seguir el mapa <ArrowRight size={17} /></button></div> : allDone ? <div className="challenge-done"><div className="win-illustration"><Trophy size={40} /></div><p className="eyebrow">¡MISIÓN COMPLETADA!</p><h2>Insignia<br /><span>{program.badge}</span></h2><p>Tommy guardó tu logro en el pasaporte. ¡Puedes continuar con la otra misión!</p><button className="button button-primary" onClick={onBack}>Volver al mapa <ArrowRight size={17} /></button></div> : <>
         <div className="challenge-content-head"><span className="eyebrow">NIVEL {String(completedIds.length + 1).padStart(2, '0')} DE 03</span><span className="time-chip">✦ {gameLabels[current.type]} · {current.duration}</span></div><div className="challenge-progress-full"><span style={{ width: `${(completedIds.length / program.challenges.length) * 100}%` }} /></div>
-        <TommyGuide compact image={image}>{program.guide}</TommyGuide>
         <div className="question-block"><h2>{current.title}</h2><p>{current.prompt}</p></div>
         <GameBoard challenge={current} selectedItems={selectedItems} toggleItem={toggleItem} sequence={sequence} moveStep={moveStep} detectiveChoice={detectiveChoice} setDetectiveChoice={(value) => { setDetectiveChoice(value); setError(''); onFeedback('tap'); }} allocation={allocation} changeAllocation={changeAllocation} headline={headline} setHeadline={(value) => { setHeadline(value); setError(''); onFeedback('tap'); }} />
         {error && <p className="form-error" role="alert">{error}</p>}
-        <div className="challenge-actions"><button className="button button-primary" disabled={busy} onClick={submit}>{busy ? 'Tommy revisa tu misión…' : <>Confirmar nivel <Coins size={16} /> +{event.gamification.coinsPerChallenge}</>}</button></div>
+        <div className="challenge-actions"><button className="button button-primary" disabled={busy} onClick={submit}>{busy ? 'Tommy revisa tu misión…' : <>Completar y ganar <Coins size={16} /> +{event.gamification.coinsPerChallenge + event.gamification.coinsPerBadge}</>}</button></div>
         <p className="challenge-footnote"><CircleHelp size={14} /> Prueba, explora y aprende. Cada misión es individual.</p>
       </>}
     </section>
@@ -318,7 +410,7 @@ function Auditorium({ event, progress, updateProgress, onBack, onFeedback }) {
     finally { setBusyId(''); }
   }
 
-  return <main className="page-wrap inner-page"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Volver al mapa</button><section className="auditorium-page"><div className="auditorium-banner"><span className="banner-icon"><Mic2 size={28} /></span><p className="eyebrow">MISIÓN FINAL · AUDITORIO</p><h1>Escucha.<br /><span>Conecta ideas.</span></h1><p>Cada ponente compartirá un código distinto. Registra cada charla para completar el pasaporte.</p><div className="speaker-art"><span /><span /><span /></div><div className="auditorium-mascot"><img src={event.mascot.welcomeImage} alt="Tommy te acompaña en el auditorio" /></div></div><div className="talks-panel"><div className="section-heading"><div><p className="eyebrow">PASAPORTE DE CHARLAS</p><h2>Tres ideas para tu futuro</h2></div><span className="count-label">{checked.length}/{event.talks.length} completas</span></div><TommyGuide compact image={event.mascot.welcomeImage}>Cuando termine cada charla, pídele al ponente el código de esa sesión. ¡No los confundas!</TommyGuide><div className="talk-list">{event.talks.map((talk, index) => { const isDone = checked.includes(talk.id); return <article className={`talk-row ${isDone ? 'checked' : ''}`} key={talk.id}><span className="talk-index">{isDone ? <Check size={15} /> : `0${index + 1}`}</span><div className="talk-info"><strong>{talk.title}</strong><span>{talk.speaker}</span>{isDone ? <span className="attendance-done"><CheckCircle2 size={14} /> Sello guardado en tu pasaporte</span> : <div className="talk-code-entry"><label className="sr-only" htmlFor={`code-${talk.id}`}>Código para {talk.label}</label><input id={`code-${talk.id}`} value={codes[talk.id] || ''} onChange={(e) => setCodes((previous) => ({ ...previous, [talk.id]: e.target.value }))} placeholder={`Código de ${talk.label}`} autoComplete="off" maxLength="40" /><button type="button" className="text-button" disabled={!codes[talk.id]?.trim() || busyId === talk.id} onClick={() => checkIn(talk)}>{busyId === talk.id ? 'Validando…' : 'Guardar asistencia'} <ArrowRight size={14} /></button></div>}{error[talk.id] && <span className="talk-error" role="alert">{error[talk.id]}</span>}</div></article>; })}</div>{earned && <div className="auditorium-earned"><Trophy size={21} /><div><strong>¡Insignia Voz del futuro desbloqueada!</strong><span>+{event.gamification.coinsPerAuditoriumBadge} Tommy Coins · {event.rewards.description}</span></div></div>}<p className="challenge-footnote"><LockKeyhole size={14} /> Cada charla se registra una sola vez con un código propio.</p></div></section></main>;
+  return <main className="page-wrap inner-page"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Volver al mapa</button><section className="auditorium-page"><div className="auditorium-banner"><span className="banner-icon"><Mic2 size={28} /></span><p className="eyebrow">MISIÓN FINAL · AUDITORIO</p><h1>Escucha.<br /><span>Conecta ideas.</span></h1><p>Cada ponente compartirá un código distinto. Registra cada charla para completar el pasaporte.</p><div className="speaker-art"><span /><span /><span /></div><div className="auditorium-mascot"><img src={event.mascot.welcomeImage} alt="Tommy te acompaña en el auditorio" /></div></div><div className="talks-panel"><div className="section-heading"><div><p className="eyebrow">PASAPORTE DE CHARLAS</p><h2>Tres ideas para tu futuro</h2></div><span className="count-label">{checked.length}/{event.talks.length} completas</span></div><div className="talk-list">{event.talks.map((talk, index) => { const isDone = checked.includes(talk.id); return <article className={`talk-row ${isDone ? 'checked' : ''}`} key={talk.id}><span className="talk-index">{isDone ? <Check size={15} /> : `0${index + 1}`}</span><div className="talk-info"><strong>{talk.title}</strong><span>{talk.speaker}</span>{isDone ? <span className="attendance-done"><CheckCircle2 size={14} /> Sello guardado en tu pasaporte</span> : <div className="talk-code-entry"><label className="sr-only" htmlFor={`code-${talk.id}`}>Código para {talk.label}</label><input id={`code-${talk.id}`} value={codes[talk.id] || ''} onChange={(e) => setCodes((previous) => ({ ...previous, [talk.id]: e.target.value }))} placeholder={`Código de ${talk.label}`} autoComplete="off" maxLength="40" /><button type="button" className="text-button" disabled={!codes[talk.id]?.trim() || busyId === talk.id} onClick={() => checkIn(talk)}>{busyId === talk.id ? 'Validando…' : 'Guardar asistencia'} <ArrowRight size={14} /></button></div>}{error[talk.id] && <span className="talk-error" role="alert">{error[talk.id]}</span>}</div></article>; })}</div>{earned && <div className="auditorium-earned"><Trophy size={21} /><div><strong>¡Insignia Voz del futuro desbloqueada!</strong><span>+{event.gamification.coinsPerAuditoriumBadge} Tommy Coins · {event.rewards.description}</span></div></div>}<p className="challenge-footnote"><LockKeyhole size={14} /> Cada charla se registra una sola vez con un código propio.</p></div></section></main>;
 }
 
 function Finish({ event, user, progress, onBack, onFeedback }) {

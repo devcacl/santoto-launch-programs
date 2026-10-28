@@ -6,7 +6,7 @@ import { rateLimit } from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { pool, initializeDatabase } from './db.js';
+import { pool, query, initializeDatabase } from './db.js';
 import { requireAdmin, signSession, verifySession } from './security.js';
 
 const app = express();
@@ -39,7 +39,7 @@ async function requireParticipant(req, res, next) {
   const id = participantId(req);
   if (!id) return res.status(401).json({ error: 'Regístrate para guardar tu recorrido.' });
   try {
-    const { rows } = await pool.query('SELECT id FROM participants WHERE id = $1', [id]);
+    const { rows } = await query('SELECT id FROM participants WHERE id = $1', [id]);
     if (!rows.length) return res.status(401).json({ error: 'La sesión ya no está activa.' });
     req.participantId = id;
     next();
@@ -48,18 +48,18 @@ async function requireParticipant(req, res, next) {
 
 async function getProgress(id) {
   const [challenges, talks] = await Promise.all([
-    pool.query('SELECT program_id, challenge_id, answer_index, completed_at FROM challenge_completions WHERE participant_id = $1', [id]),
-    pool.query('SELECT talk_id, checked_in_at FROM talk_attendance WHERE participant_id = $1', [id]),
+    query('SELECT program_id, challenge_id, answer_index, completed_at FROM challenge_completions WHERE participant_id = $1', [id]),
+    query('SELECT talk_id, checked_in_at FROM talk_attendance WHERE participant_id = $1', [id]),
   ]);
   const completedChallenges = challenges.rows;
   const completedTalks = talks.rows;
-  const programBadges = config.programs.filter((program) => program.challenges.every((challenge) => completedChallenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id)));
   const auditoriumBadge = config.talks.length > 0 && config.talks.every((talk) => completedTalks.some((row) => row.talk_id === talk.id));
   const coins = completedChallenges.length * config.gamification.coinsPerChallenge
     + completedTalks.length * config.gamification.coinsPerTalk
-    + programBadges.length * config.gamification.coinsPerBadge
+    + completedChallenges.length * config.gamification.coinsPerBadge
     + (auditoriumBadge ? config.gamification.coinsPerAuditoriumBadge : 0);
-  return { challenges: completedChallenges, talks: completedTalks, coins, badges: [...programBadges.map((program) => program.id), ...(auditoriumBadge ? ['auditorium'] : [])] };
+  const challengeBadges = completedChallenges.map((row) => `${row.program_id}:${row.challenge_id}`);
+  return { challenges: completedChallenges, talks: completedTalks, coins, badges: [...challengeBadges, ...(auditoriumBadge ? ['auditorium'] : [])] };
 }
 
 function validChallengeAnswer(challenge, rawAnswer) {
@@ -99,7 +99,10 @@ function validChallengeAnswer(challenge, rawAnswer) {
   return false;
 }
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', async (_req, res) => {
+  try { await query('SELECT 1 AS database_ready'); res.json({ status: 'ok', database: 'ok' }); }
+  catch { res.status(503).json({ status: 'unavailable', database: 'unavailable' }); }
+});
 app.get('/api/event', (_req, res) => {
   const event = structuredClone(config);
   event.programs = event.programs.map((program) => ({
@@ -116,19 +119,19 @@ app.post('/api/auth/register', async (req, res, next) => {
   const email = input.email.toLowerCase();
   try {
     const id = randomUUID();
-    const inserted = await pool.query(`INSERT INTO participants (id, first_name, last_name, email, phone, school, city, consent_privacy, consent_marketing)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (email) DO NOTHING RETURNING id`,
+    const inserted = await query(`INSERT IGNORE INTO participants (id, first_name, last_name, email, phone, school, city, consent_privacy, consent_marketing)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [id, input.firstName, input.lastName, email, input.phone || null, input.school || null, input.city || null, input.consentPrivacy, input.consentMarketing]);
     if (!inserted.rowCount) return res.status(409).json({ error: 'Este correo ya tiene un recorrido asociado. Continúa desde el dispositivo donde te registraste o solicita apoyo al equipo del evento.' });
     res.cookie(cookieName, signSession(id), { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true' || isProduction, sameSite: 'lax', maxAge: 14 * 24 * 60 * 60 * 1000, path: '/' });
-    const { rows } = await pool.query('SELECT id, first_name, last_name, preferred_program FROM participants WHERE id=$1', [id]);
+    const { rows } = await query('SELECT id, first_name, last_name, preferred_program FROM participants WHERE id=$1', [id]);
     res.json({ participant: rows[0], progress: await getProgress(id) });
   } catch (error) { next(error); }
 });
 
 app.get('/api/me', requireParticipant, async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT id, first_name, last_name, preferred_program FROM participants WHERE id=$1', [req.participantId]);
+    const { rows } = await query('SELECT id, first_name, last_name, preferred_program FROM participants WHERE id=$1', [req.participantId]);
     res.json({ participant: rows[0], progress: await getProgress(req.participantId) });
   } catch (error) { next(error); }
 });
@@ -144,16 +147,14 @@ app.post('/api/challenges/:programId/:challengeId/complete', requireParticipant,
   try {
     if (challengeIndex > 0) {
       const previous = program.challenges[challengeIndex - 1];
-      const result = await pool.query('SELECT 1 FROM challenge_completions WHERE participant_id=$1 AND program_id=$2 AND challenge_id=$3', [req.participantId, programId, previous.id]);
+      const result = await query('SELECT 1 FROM challenge_completions WHERE participant_id=$1 AND program_id=$2 AND challenge_id=$3', [req.participantId, programId, previous.id]);
       if (!result.rowCount) return res.status(409).json({ error: 'Completa el reto anterior para continuar.' });
     }
-    const before = await getProgress(req.participantId);
-    const inserted = await pool.query(`INSERT INTO challenge_completions (participant_id, program_id, challenge_id, answer_index, answer_json)
-      VALUES ($1,$2,$3,0,$4::jsonb) ON CONFLICT (participant_id, program_id, challenge_id) DO NOTHING RETURNING challenge_id`, [req.participantId, programId, challengeId, JSON.stringify(req.body.answer)]);
+    const inserted = await query(`INSERT IGNORE INTO challenge_completions (participant_id, program_id, challenge_id, answer_index, answer_json)
+      VALUES ($1,$2,$3,0,$4)`, [req.participantId, programId, challengeId, JSON.stringify(req.body.answer)]);
     const progress = await getProgress(req.participantId);
-    const badgeEarned = program.challenges.every((item) => progress.challenges.some((row) => row.program_id === programId && row.challenge_id === item.id));
-    const earnedProgramBadge = badgeEarned && !before.badges.includes(programId);
-    const coinsAwarded = inserted.rowCount ? config.gamification.coinsPerChallenge + (earnedProgramBadge ? config.gamification.coinsPerBadge : 0) : 0;
+    const badgeEarned = inserted.rowCount > 0;
+    const coinsAwarded = inserted.rowCount ? config.gamification.coinsPerChallenge + config.gamification.coinsPerBadge : 0;
     res.json({ success: true, feedback: challenge.feedback, badgeEarned, coinsAwarded, progress });
   } catch (error) { next(error); }
 });
@@ -169,7 +170,7 @@ app.post('/api/talks/:talkId/check-in', requireParticipant, async (req, res, nex
     try { checkInCodes = JSON.parse(process.env.AUDITORIUM_CHECKIN_CODES || '{}'); } catch { return res.status(503).json({ error: 'El registro de charlas no está configurado.' }); }
     if (!checkInCodes[talk.id] || req.body?.code !== checkInCodes[talk.id]) return res.status(403).json({ error: 'Ese código no corresponde a esta charla. Pídele a Tommy la pista correcta.' });
     const before = await getProgress(req.participantId);
-    const inserted = await pool.query('INSERT INTO talk_attendance (participant_id, talk_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING talk_id', [req.participantId, talk.id]);
+    const inserted = await query('INSERT IGNORE INTO talk_attendance (participant_id, talk_id) VALUES ($1,$2)', [req.participantId, talk.id]);
     const nextProgress = await getProgress(req.participantId);
     const earnedAuditoriumBadge = nextProgress.badges.includes('auditorium') && !before.badges.includes('auditorium');
     const coinsAwarded = inserted.rowCount ? config.gamification.coinsPerTalk + (earnedAuditoriumBadge ? config.gamification.coinsPerAuditoriumBadge : 0) : 0;
@@ -182,14 +183,14 @@ app.patch('/api/me/preference', requireParticipant, async (req, res, next) => {
   const allowed = new Set([...config.programs.map((item) => item.name), ...config.otherPrograms, 'Aún no lo sé']);
   if (!program.success || !allowed.has(program.data)) return res.status(400).json({ error: 'Selecciona una opción de la lista.' });
   try {
-    await pool.query('UPDATE participants SET preferred_program=$1, updated_at=NOW() WHERE id=$2', [program.data, req.participantId]);
+    await query('UPDATE participants SET preferred_program=$1, updated_at=NOW() WHERE id=$2', [program.data, req.participantId]);
     res.json({ success: true });
   } catch (error) { next(error); }
 });
 
 app.get('/api/admin/leads.csv', requireAdmin, async (_req, res, next) => {
   try {
-    const { rows } = await pool.query(`SELECT p.id, p.first_name, p.last_name, p.email, p.phone, p.school, p.city,
+    const { rows } = await query(`SELECT p.id, p.first_name, p.last_name, p.email, p.phone, p.school, p.city,
       p.preferred_program, p.consent_privacy, p.consent_marketing, p.created_at,
       (SELECT COUNT(*) FROM challenge_completions c WHERE c.participant_id=p.id) AS completed_challenges,
       (SELECT COUNT(*) FROM talk_attendance t WHERE t.participant_id=p.id) AS talks_attended

@@ -1,20 +1,21 @@
 services:
   database:
-    image: postgres:16-alpine
+    image: mariadb:11.4
     restart: unless-stopped
     environment:
-      POSTGRES_DB: santoto_launch
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+      MARIADB_DATABASE: ${DB_NAME:-santoto_launch}
+      MARIADB_USER: ${DB_USER:-santoto_app}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-local-development-only}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-local-root-development-only}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
     volumes:
-      - launch_pg_data:/var/lib/postgresql/data
+      - launch_mariadb_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d santoto_launch"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 3s
       retries: 10
 
 volumes:
-  launch_pg_data:
+  launch_mariadb_data:
