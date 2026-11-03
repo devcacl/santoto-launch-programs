@@ -188,6 +188,44 @@ app.patch('/api/me/preference', requireParticipant, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+app.get('/api/admin/overview', requireAdmin, async (_req, res, next) => {
+  try {
+    const [totals, preferences, activities] = await Promise.all([
+      query(`SELECT COUNT(*) AS leads,
+        SUM(CASE WHEN preferred_program IS NOT NULL THEN 1 ELSE 0 END) AS with_preference,
+        SUM(CASE WHEN consent_marketing = 1 THEN 1 ELSE 0 END) AS marketing_opt_in,
+        SUM(CASE WHEN created_at >= CURRENT_DATE() THEN 1 ELSE 0 END) AS today
+        FROM participants`),
+      query(`SELECT preferred_program AS name, COUNT(*) AS count FROM participants
+        WHERE preferred_program IS NOT NULL GROUP BY preferred_program ORDER BY count DESC`),
+      query(`SELECT (SELECT COUNT(*) FROM challenge_completions) AS challenges,
+        (SELECT COUNT(*) FROM talk_attendance) AS talk_checkins`),
+    ]);
+    res.set('Cache-Control', 'no-store');
+    res.json({ totals: totals.rows[0], preferences: preferences.rows, activities: activities.rows[0] });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/leads', requireAdmin, async (req, res, next) => {
+  const page = Math.min(100_000, Math.max(1, Number.parseInt(req.query.page, 10) || 1));
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 25));
+  const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : '';
+  try {
+    const term = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
+    const match = search ? 'WHERE p.first_name LIKE $1 OR p.last_name LIKE $1 OR p.email LIKE $1 OR p.preferred_program LIKE $1' : '';
+    const params = search ? [term] : [];
+    const count = await query(`SELECT COUNT(*) AS total FROM participants p ${match}`, params);
+    const rows = await query(`SELECT p.id, p.first_name, p.last_name, p.email, p.phone, p.school, p.city,
+      p.preferred_program, p.consent_privacy, p.consent_marketing, p.created_at,
+      (SELECT COUNT(*) FROM challenge_completions c WHERE c.participant_id=p.id) AS completed_challenges,
+      (SELECT COUNT(*) FROM talk_attendance t WHERE t.participant_id=p.id) AS talks_attended
+      FROM participants p ${match} ORDER BY p.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, pageSize, (page - 1) * pageSize]);
+    res.set('Cache-Control', 'no-store');
+    res.json({ leads: rows.rows, page, pageSize, total: Number(count.rows[0].total) });
+  } catch (error) { next(error); }
+});
+
 app.get('/api/admin/leads.csv', requireAdmin, async (_req, res, next) => {
   try {
     const { rows } = await query(`SELECT p.id, p.first_name, p.last_name, p.email, p.phone, p.school, p.city,

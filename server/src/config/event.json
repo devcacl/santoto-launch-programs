@@ -1,6 +1,6 @@
 {
   "university": "Universidad Santo Tomás · Seccional Tunja",
-  "eventName": "Nuevos caminos, nuevas ideas",
+  "eventName": "EVOLUCIONA-T",
   "edition": "Experiencia de lanzamiento",
   "intro": "Recorre los stands, resuelve misiones a tu ritmo y descubre qué programa va contigo.",
   "privacyUrl": "https://santototunja.edu.co/politica-de-proteccion-de-datos",
@@ -110,9 +110,9 @@
     }
   ],
   "talks": [
-    { "id": "talk-1", "label": "Charla 1", "title": "Ideas que transforman", "speaker": "Invitado por confirmar" },
-    { "id": "talk-2", "label": "Charla 2", "title": "Decisiones para el futuro", "speaker": "Invitado por confirmar" },
-    { "id": "talk-3", "label": "Charla 3", "title": "Tu camino profesional", "speaker": "Invitado por confirmar" }
+    { "id": "talk-1", "label": "Charla 1", "title": "Liderazgo y evolución institucional", "speaker": "Fray Oscar Eduardo Guayán Perdono O.P. · Rector" },
+    { "id": "talk-2", "label": "Charla 2", "title": "Formación académica para transformar", "speaker": "Fray Wilmar Yesid Ruiz Cortés O.P. · Vicerrector académico" },
+    { "id": "talk-3", "label": "Charla 3", "title": "Nutrición, datos y nuevas oportunidades", "speaker": "Luis Rafael Hutchison · Nutrición y Dietética; Esperanza Díaz Casallas · Inteligencia de Negocios" }
   ],
   "otherPrograms": [
     "Administración de Empresas", "Arquitectura", "Contaduría Pública", "Derecho", "Ingeniería Civil",
