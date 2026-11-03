@@ -15,13 +15,29 @@ const port = Number(process.env.PORT || 3001);
 const cookieName = 'santoto_session';
 const isProduction = process.env.NODE_ENV === 'production';
 
+if (isProduction) {
+  const required = ['APP_ORIGIN', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'SESSION_SECRET', 'ADMIN_API_KEY'];
+  const missing = required.filter((name) => !process.env[name] || process.env[name].length < (['SESSION_SECRET', 'ADMIN_API_KEY', 'DB_PASSWORD'].includes(name) ? 32 : 1));
+  if (missing.length) throw new Error(`Missing or weak production configuration: ${missing.join(', ')}`);
+  if (process.env.COOKIE_SECURE !== 'true' || process.env.DB_SSL !== 'true') throw new Error('Production requires COOKIE_SECURE=true and DB_SSL=true');
+  if (/localhost|127\.0\.0\.1/i.test(process.env.APP_ORIGIN)) throw new Error('APP_ORIGIN must use the approved HTTPS origin in production');
+  let productionOrigin;
+  try { productionOrigin = new URL(process.env.APP_ORIGIN); } catch { throw new Error('APP_ORIGIN must be a valid HTTPS origin'); }
+  if (productionOrigin.protocol !== 'https:') throw new Error('APP_ORIGIN must use HTTPS in production');
+  try {
+    const checkinCodes = JSON.parse(process.env.AUDITORIUM_CHECKIN_CODES || '{}');
+    if (config.talks.some((talk) => typeof checkinCodes[talk.id] !== 'string' || checkinCodes[talk.id].length < 16 || checkinCodes[talk.id].startsWith('DEMO-'))) throw new Error();
+  } catch { throw new Error('Set a unique private check-in code of at least 16 characters per auditorium talk'); }
+}
+
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: process.env.APP_ORIGIN || 'http://localhost:5173', credentials: true, methods: ['GET', 'POST', 'PATCH'] }));
 app.use(express.json({ limit: '32kb' }));
 app.use(cookieParser());
-app.use('/api', rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: 'draft-7', legacyHeaders: false }));
-app.use('/api/auth/register', rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false }));
+app.use('/api', rateLimit({ windowMs: 60_000, limit: Number(process.env.API_RATE_LIMIT_PER_IP || 5000), standardHeaders: 'draft-7', legacyHeaders: false }));
+// Event attendees commonly share one campus NAT IP; keep this high enough for enrollment day.
+app.use('/api/auth/register', rateLimit({ windowMs: 15 * 60_000, limit: Number(process.env.REGISTRATION_RATE_LIMIT_PER_IP || 500), standardHeaders: 'draft-7', legacyHeaders: false }));
 
 const registrationSchema = z.object({
   firstName: z.string().trim().min(2).max(80).regex(/^[\p{L}\p{M}][\p{L}\p{M}\s'.-]+$/u),
@@ -124,8 +140,10 @@ app.post('/api/auth/register', async (req, res, next) => {
     [id, input.firstName, input.lastName, email, input.phone || null, input.school || null, input.city || null, input.consentPrivacy, input.consentMarketing]);
     if (!inserted.rowCount) return res.status(409).json({ error: 'Este correo ya tiene un recorrido asociado. Continúa desde el dispositivo donde te registraste o solicita apoyo al equipo del evento.' });
     res.cookie(cookieName, signSession(id), { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true' || isProduction, sameSite: 'lax', maxAge: 14 * 24 * 60 * 60 * 1000, path: '/' });
-    const { rows } = await query('SELECT id, first_name, last_name, preferred_program FROM participants WHERE id=$1', [id]);
-    res.json({ participant: rows[0], progress: await getProgress(id) });
+    res.json({
+      participant: { id, first_name: input.firstName, last_name: input.lastName, preferred_program: null },
+      progress: { challenges: [], talks: [], coins: 0, badges: [] },
+    });
   } catch (error) { next(error); }
 });
 

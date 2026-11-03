@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/bootstrap.js",
+    "dev": "node --watch-path=src src/bootstrap.js",
     "start": "node src/bootstrap.js"
   },
   "dependencies": {

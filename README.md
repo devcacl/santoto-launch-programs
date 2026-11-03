@@ -101,7 +101,9 @@ Cada registro local agrega información de prueba a MariaDB. Usa un correo difer
 
 ## Capacidad
 
-El API usa un pool MariaDB limitado (20 conexiones por proceso por defecto), tablas InnoDB, índices y escrituras idempotentes. La meta de 300 usuarios concurrentes debe confirmarse en el ambiente y proveedor aprobados mediante prueba de carga antes del evento. Mantén suficientes conexiones de base de datos para el pool agregado de todas las réplicas.
+El API usa un pool MariaDB limitado (50 conexiones y cola acotada a 2000 operaciones por proceso por defecto), tablas InnoDB, índices y escrituras idempotentes. El límite del API y el de registro consideran que cientos de asistentes pueden compartir la IP pública del campus; ajústalos en `API_RATE_LIMIT_PER_IP` y `REGISTRATION_RATE_LIMIT_PER_IP` después de pruebas de abuso y carga. El limitador estándar guarda estado en memoria por proceso; para varias réplicas se debe configurar un store distribuido antes de escalar. La meta de 300 usuarios concurrentes debe confirmarse en el ambiente y proveedor aprobados mediante prueba de carga antes del evento. Mantén suficientes conexiones de base de datos para el pool agregado de todas las réplicas.
+
+Antes de arrancar con `NODE_ENV=production`, la API exige origen HTTPS, TLS de base de datos, cookie segura, contraseñas/secrets largos y códigos privados no demo para todas las charlas. En desarrollo, los datos de EVOLUCIONA-T, el catálogo y los retos son configuración editable en `server/src/config/event.json`; códigos DEMO y contraseñas locales solo se permiten para pruebas locales.
 
 ## Estructura
 
