@@ -13,14 +13,52 @@ Experiencia web gamificada para el lanzamiento de Nutrición y Dietética e Inte
 
 - Node.js 20 o superior y npm.
 - Docker Desktop para iniciar MariaDB local, o una instancia MariaDB autorizada por TI.
+- En la primera instalación, conexión a Internet para descargar los paquetes de npm y la imagen de MariaDB.
 
 ## Inicio local
 
-1. Copia `.env.example` a `.env` y cambia los secretos por valores aleatorios propios. No compartas ni confirmes `.env`.
-2. Inicia la base de datos con `docker compose up -d database` y espera a que el contenedor esté saludable.
-3. Instala dependencias: `npm install` en la raíz, luego `npm install` en `server` y `client`.
-4. Ejecuta `npm run dev` desde la raíz.
-5. Abre `http://localhost:5173`.
+1. Abre Docker Desktop desde el menú Inicio y espera a que indique que el motor está ejecutándose. Si aparece el error `failed to connect to the docker API`, Docker Desktop aún está iniciando o no levantó su motor Linux.
+2. Abre una terminal en la carpeta del proyecto:
+
+   ```cmd
+   cd C:\Users\leonc\OneDrive\Desktop\apps
+   ```
+
+3. Si es la primera instalación, crea el archivo local `.env` copiando `.env.example`, genera valores propios para `SESSION_SECRET` y `ADMIN_API_KEY`, y no compartas ese archivo. El `.env` local ya existente conserva sus valores y no se reemplaza al actualizar el repositorio.
+4. Instala las dependencias una sola vez (o después de actualizar los paquetes):
+
+   ```cmd
+   npm install
+   npm --prefix server install
+   npm --prefix client install
+   ```
+
+5. En esa terminal inicia MariaDB:
+
+   ```cmd
+   docker compose up -d database
+   docker compose ps
+   ```
+
+   Espera hasta que `apps-database-1` muestre `healthy`.
+
+6. Abre una segunda terminal en la misma carpeta y ejecuta:
+
+   ```cmd
+   cd C:\Users\leonc\OneDrive\Desktop\apps
+   npm run dev
+   ```
+
+   Deja esta terminal abierta mientras uses la app. Inicia el servidor React/Vite y la API de Node.
+
+7. En el navegador abre [http://localhost:5173](http://localhost:5173). El panel está en [http://localhost:5173/admin](http://localhost:5173/admin).
+8. Para comprobar que la API conectó con MariaDB, abre [http://localhost:3001/api/health](http://localhost:3001/api/health). Debe responder `{"status":"ok","database":"ok"}`.
+
+Para detener la web y la API, pulsa `Ctrl+C` en la segunda terminal. Para detener MariaDB sin borrar sus datos, ejecuta `docker compose stop database` en la primera. Para volver a iniciar el proyecto, repite desde el paso 1 y omite la instalación de dependencias si no cambió el código de paquetes.
+
+### Acceso local al panel administrativo
+
+La clave de prueba local configurada en el `.env` de desarrollo es `SantotoAdmin-Local-2026-EVOLUCIONA-T-Only`. Escríbela en el formulario de [http://localhost:5173/admin](http://localhost:5173/admin). Solo sirve para el entorno local: nunca la uses en producción ni la guardes en Git. En producción, TI debe configurar una `ADMIN_API_KEY` diferente, aleatoria y privada de al menos 32 caracteres.
 
 La API inicia en `http://localhost:3001`. `GET /api/health` es el chequeo de disponibilidad. Las tablas se crean al iniciar la API.
 
