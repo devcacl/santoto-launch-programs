@@ -1,11 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Award, BarChart3, Check, CheckCircle2, ChevronRight, CircleHelp, Coins, Leaf, LockKeyhole, Map as MapIcon, Mic2, Sparkles, Trophy, Volume2, VolumeX, Vibrate, X } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { useExperienceFeedback } from './feedback.js';
 
 const API = '/api';
 const EMPTY_PROGRESS = { challenges: [], talks: [], coins: 0, badges: [] };
 const iconFor = (icon, size = 22) => icon === 'leaf' ? <Leaf size={size} /> : icon === 'chart' ? <BarChart3 size={size} /> : <Mic2 size={size} />;
 const gameLabels = { builder: 'Arma', market: 'Presupuesta', sequence: 'Ordena', detective: 'Investiga', allocation: 'Distribuye', headline: 'Comunica', match: 'Conecta' };
+function shuffled(items = []) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`${API}${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json', ...options.headers }, ...options });
@@ -158,7 +167,7 @@ export default function App() {
     {view === 'program' && <ProgramDetail key={activeProgram} event={event} program={event.programs.find((program) => program.id === activeProgram)} progress={progress} updateProgress={updateProgress} onNextAction={continueFromProgram} onBack={() => setView('journey')} onFeedback={feedback.feedback} onGuide={(challenge, currentProgram) => { const key = `challenge:${currentProgram.id}:${challenge.id}`; if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, 'seen'); setGuide({ title: challenge.title, text: currentProgram.guide, image: event.mascot.programImages[currentProgram.id] || event.mascot.welcomeImage }); } }} />}
     {view === 'auditorium' && <Auditorium event={event} progress={progress} updateProgress={updateProgress} onComplete={openPreference} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
     {view === 'finish' && <Finish event={event} user={user} progress={progress} onComplete={onPreferenceSaved} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
-    {view !== 'welcome' && <footer className="site-footer"><span>Universidad Santo Tomás · Seccional Tunja</span><a href={event.privacyUrl} target="_blank" rel="noreferrer">Autorización de datos personales <ArrowRight size={13} /></a></footer>}
+    <footer className="site-footer"><span>Universidad Santo Tomás · Seccional Tunja</span><a href={event.privacyUrl} target="_blank" rel="noreferrer">Autorización de datos personales <ArrowRight size={13} /></a></footer>
     {view !== 'welcome' && <button type="button" className="tommy-fab" onClick={() => setGuide({ title: 'Aquí estoy para ayudarte', text: 'Avanza por los niveles en orden. Si necesitas una pista, vuelve aquí cuando quieras.', image: tommyGuideImage })} aria-label="Pedir ayuda a Tommy"><img src={tommyGuideImage} alt="" /><span>Tommy</span></button>}
     {guide && <div className="guide-backdrop"><section className="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-title"><div className="guide-dialog-art"><img src={guide.image} alt="Tommy" /></div><div className="guide-dialog-copy"><span className="eyebrow">TOMMY TE CUENTA</span><h2 id="guide-title">{guide.title}</h2><p>{guide.text}</p><button className="button button-primary guide-continue" onClick={() => setGuide(null)}>{view === 'welcome' ? 'Entendido, empezar' : 'Entendido, continuar'} <ArrowRight size={17} /></button><small>El sonido y el movimiento del teléfono son opcionales y se pueden apagar.</small></div></section></div>}
   </div>;
@@ -228,29 +237,35 @@ function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, perc
 }
 
 function PassportCard({ event, user, progress, percent, finished, totalActivities }) {
-  function downloadPassport() {
-    const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 760;
-    const context = canvas.getContext('2d');
-    const gradient = context.createLinearGradient(0, 0, 1200, 760); gradient.addColorStop(0, '#111e3b'); gradient.addColorStop(1, '#2423a8');
-    context.fillStyle = gradient; context.fillRect(0, 0, 1200, 760);
-    context.fillStyle = '#d9f56e'; context.beginPath(); context.roundRect(64, 64, 1072, 632, 42); context.fill();
-    context.fillStyle = '#121e3a'; context.beginPath(); context.roundRect(78, 78, 1044, 604, 34); context.fill();
-    context.fillStyle = '#d9f56e'; context.font = '800 32px Arial'; context.fillText(event.eventName, 128, 160);
-    context.fillStyle = '#ffffff'; context.font = '800 64px Arial'; context.fillText('PASAPORTE EXPLORADOR', 128, 252);
-    context.fillStyle = '#b6c4dc'; context.font = '500 34px Arial'; context.fillText(`Este pasaporte pertenece a ${user.first_name} ${user.last_name}`, 128, 326);
-    context.fillStyle = '#72e2bc'; context.font = '700 30px Arial'; context.fillText(`${progress.badges.length} insignias · ${progress.coins} Tommy Coins · ${percent}% completado`, 128, 414);
-    context.fillStyle = '#ffffff'; context.font = '500 25px Arial'; context.fillText('Universidad Santo Tomás · Seccional Tunja', 128, 584);
-    context.fillStyle = '#d9f56e'; context.font = '700 24px Arial'; context.fillText(`Misión completa · ${totalActivities} actividades`, 128, 632);
-    canvas.toBlob((blob) => { if (!blob) return; const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `pasaporte-${user.first_name.toLowerCase()}.png`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, 'image/png');
+  const passportRef = useRef(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
+  async function downloadPassport() {
+    if (!passportRef.current || !finished || isDownloading) return;
+    setIsDownloading(true);
+    setDownloadError('');
+    try {
+      await document.fonts?.ready;
+      const image = await toPng(passportRef.current, { pixelRatio: 2, cacheBust: true });
+      const safeName = `${user.first_name}-${user.last_name}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const anchor = document.createElement('a');
+      anchor.href = image;
+      anchor.download = `pasaporte-evoluciona-t-${safeName || 'explorador'}.png`;
+      anchor.click();
+    } catch {
+      setDownloadError('No pudimos preparar la imagen. Intenta de nuevo o usa otro navegador.');
+    } finally {
+      setIsDownloading(false);
+    }
   }
   return <section className="passport-view">
-    <article className={`passport-card-visual ${finished ? 'complete' : 'in-progress'}`} aria-label={`Pasaporte de ${user.first_name}, ${finished ? 'completo' : 'en progreso'}`}>
+    <article ref={passportRef} className={`passport-card-visual ${finished ? 'complete' : 'in-progress'}`} aria-label={`Pasaporte de ${user.first_name}, ${finished ? 'completo' : 'en progreso'}`}>
       <div className="passport-card-top"><span>{event.university}</span><span>{finished ? <><CheckCircle2 size={15} /> COMPLETO</> : <><LockKeyhole size={14} /> EN PROGRESO</>}</span></div>
       <div className="passport-card-body"><div><p className="eyebrow">{event.eventName}</p><h2>Pasaporte<br />explorador</h2><p>Este pasaporte pertenece a</p><strong className="passport-owner">{user.first_name} {user.last_name}</strong></div><img src={event.mascot.welcomeImage} alt="Tommy, guía de la experiencia" /></div>
       <div className="passport-card-bottom"><span>{progress.badges.length} / {event.programs.reduce((n, program) => n + program.challenges.length, 0) + (event.talks.length ? 1 : 0)} insignias</span><span>{progress.coins} Tommy Coins</span><span>{percent}%</span></div>
     </article>
     <div className="passport-tommy-note"><img src={event.mascot.welcomeImage} alt="" /><div><span className="eyebrow">TOMMY TE CUENTA</span><h3>Este es tu pasaporte</h3><p>{finished ? '¡Misión cumplida! Tu tarjeta ya está lista para descargar.' : 'Tu pasaporte va tomando forma. Completa todos los retos y asiste a las charlas para revelar la tarjeta completa.'}</p></div></div>
-    <div className="passport-download"><div><strong>{finished ? '¡Tu recorrido está completo!' : 'Tu descarga se desbloquea al final'}</strong><span>{progress.challenges.length + progress.talks.length} de {totalActivities} actividades completadas</span><div className="passport-progress"><span style={{ width: `${percent}%` }} /></div></div><button className="button button-primary" disabled={!finished} onClick={downloadPassport}><ArrowDown size={17} /> Descargar pasaporte</button></div>
+    <div className="passport-download"><div><strong>{finished ? '¡Tu recorrido está completo!' : 'Tu descarga se desbloquea al final'}</strong><span>{progress.challenges.length + progress.talks.length} de {totalActivities} actividades completadas</span><div className="passport-progress"><span style={{ width: `${percent}%` }} /></div></div><button className="button button-primary" disabled={!finished || isDownloading} onClick={downloadPassport}><ArrowDown size={17} /> {isDownloading ? 'Preparando imagen…' : 'Descargar pasaporte'}</button>{downloadError && <p className="form-error" role="alert">{downloadError}</p>}</div>
   </section>;
 }
 
@@ -331,6 +346,8 @@ function ProgramDetail({ event, program, progress, updateProgress, onNextAction,
   const [allocation, setAllocation] = useState({});
   const [headline, setHeadline] = useState({ sales: '', returns: '' });
   const [matching, setMatching] = useState({});
+  const [matchingPairs, setMatchingPairs] = useState(() => shuffled(program?.challenges[0]?.pairs));
+  const [matchingOptions, setMatchingOptions] = useState(() => shuffled(program?.challenges[0]?.options));
   const [activeMatch, setActiveMatch] = useState('');
   const [celebration, setCelebration] = useState(null);
   const [error, setError] = useState('');
@@ -349,6 +366,8 @@ function ProgramDetail({ event, program, progress, updateProgress, onNextAction,
     setAllocation(Object.fromEntries((current.buckets || []).map((bucket) => [bucket.id, 0])));
     setHeadline({ sales: '', returns: '' });
     setMatching({});
+    setMatchingPairs(shuffled(current.pairs));
+    setMatchingOptions(shuffled(current.options));
     setActiveMatch('');
     setError('');
   }, [current?.id]);
@@ -385,7 +404,16 @@ function ProgramDetail({ event, program, progress, updateProgress, onNextAction,
     try {
       const data = await request(`/challenges/${program.id}/${current.id}/complete`, { method: 'POST', body: JSON.stringify({ answer: buildAnswer() }) });
       updateProgress(data);
-      setCelebration({ feedback: data.feedback, badgeEarned: data.badgeEarned, coinsAwarded: data.coinsAwarded, challengeTitle: current.title });
+      const challengeNumber = program.challenges.findIndex((item) => item.id === current.id) + 1;
+      setCelebration({
+        feedback: data.feedback,
+        badgeEarned: data.badgeEarned,
+        coinsAwarded: data.coinsAwarded,
+        challengeTitle: current.title,
+        badgeTitle: program.badge,
+        badgeImage: event.mascot.programImages[program.id] || event.mascot.welcomeImage,
+        badgeSerial: `${program.id === 'nutrition' ? 'N' : 'I'}-${challengeNumber}`,
+      });
       onFeedback(data.badgeEarned ? 'success' : 'coin');
     } catch (err) { setError(err.message); onFeedback('tap'); }
     finally { setBusy(false); }
@@ -422,10 +450,10 @@ function ProgramDetail({ event, program, progress, updateProgress, onNextAction,
   return <main className="page-wrap inner-page"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Volver al mapa</button><div className={`challenge-layout ${program.tone}`}>
     <aside className="challenge-sidebar"><div className="program-symbol large">{iconFor(program.icon, 28)}</div><p className="eyebrow">MISIÓN INDIVIDUAL</p><h1>{program.name}</h1><p>{program.tagline}</p><div className="challenge-steps">{program.challenges.map((item, index) => { const done = completedIds.includes(item.id); const active = item.id === current?.id; return <div key={item.id} className={`challenge-step ${done ? 'complete' : active ? 'active' : ''}`}><span>{done ? <Check size={14} /> : active ? iconFor(program.icon, 13) : <LockKeyhole size={12} />}</span><div><strong>{item.title}</strong><small>{done ? 'Completado' : active ? `${gameLabels[item.type]} · ${item.duration}` : 'Bloqueado'}</small></div></div>; })}</div><Badge title={program.badge} earned={allDone} icon={iconFor(program.icon, 14)} /></aside>
     <section className="challenge-content">
-      {celebration ? <div className="level-celebration"><div className="win-illustration"><Trophy size={39} /></div><p className="eyebrow">¡LOGRO OBTENIDO!</p><h2>{celebration.challengeTitle}</h2><p>+{celebration.coinsAwarded} Tommy Coins · {celebration.feedback}</p>{celebration.badgeEarned && <div className="new-badge-banner"><Trophy size={18} /><span>¡Insignia de Tommy desbloqueada y guardada en tu colección!</span></div>}<button className="button button-primary" onClick={continueAfterAchievement}>{allDone ? 'Ir a la siguiente misión' : 'Continuar al siguiente reto'} <ArrowRight size={17} /></button></div> : allDone ? <div className="challenge-done"><div className="win-illustration"><Trophy size={40} /></div><p className="eyebrow">¡MISIÓN COMPLETADA!</p><h2>Insignia<br /><span>{program.badge}</span></h2><p>Tommy guardó tu logro en el pasaporte. ¡Puedes continuar con la otra misión!</p><button className="button button-primary" onClick={onNextAction}>Ir a la siguiente misión <ArrowRight size={17} /></button></div> : <>
+      {celebration ? <div className="level-celebration"><p className="eyebrow">¡RETO COMPLETADO!</p><h2>{celebration.challengeTitle}</h2><div className="achievement-badge-card"><div className="achievement-badge-medallion"><img src={celebration.badgeImage} alt={`Tommy: insignia ${celebration.badgeSerial}`} /><span><Award size={19} /></span></div><div><span className="achievement-badge-kicker">INSIGNIA DESBLOQUEADA · {celebration.badgeSerial}</span><strong>{celebration.badgeTitle}</strong><small>Guardada en tu pasaporte y en Mis insignias</small></div></div><p className="achievement-feedback">+{celebration.coinsAwarded} Tommy Coins · {celebration.feedback}</p><button className="button button-primary" onClick={continueAfterAchievement}>{allDone ? 'Ir a la siguiente misión' : 'Continuar al siguiente reto'} <ArrowRight size={17} /></button></div> : allDone ? <div className="challenge-done"><div className="win-illustration"><Trophy size={40} /></div><p className="eyebrow">¡MISIÓN COMPLETADA!</p><h2>Insignia<br /><span>{program.badge}</span></h2><p>Tommy guardó tu logro en el pasaporte. ¡Puedes continuar con la otra misión!</p><button className="button button-primary" onClick={onNextAction}>Ir a la siguiente misión <ArrowRight size={17} /></button></div> : <>
         <div className="challenge-content-head"><span className="eyebrow">NIVEL {String(completedIds.length + 1).padStart(2, '0')} DE {String(program.challenges.length).padStart(2, '0')}</span><span className="time-chip">✦ {gameLabels[current.type]} · {current.duration}</span></div><div className="challenge-progress-full"><span style={{ width: `${(completedIds.length / program.challenges.length) * 100}%` }} /></div>
         <div className="question-block"><h2>{current.title}</h2><p>{current.prompt}</p></div>
-        <GameBoard challenge={current} selectedItems={selectedItems} toggleItem={toggleItem} sequence={sequence} moveStep={moveStep} detectiveChoice={detectiveChoice} setDetectiveChoice={(value) => { setDetectiveChoice(value); setError(''); onFeedback('tap'); }} allocation={allocation} changeAllocation={changeAllocation} headline={headline} setHeadline={(value) => { setHeadline(value); setError(''); onFeedback('tap'); }} matching={matching} activeMatch={activeMatch} onSelectMatch={(leftId) => { setMatching((previous) => { const next = { ...previous }; delete next[leftId]; return next; }); setActiveMatch(leftId); onFeedback('tap'); }} onChooseMatch={(rightId) => { if (!activeMatch) return; setMatching((previous) => ({ ...previous, [activeMatch]: rightId })); setActiveMatch(''); setError(''); onFeedback('success'); }} />
+        <GameBoard challenge={current} selectedItems={selectedItems} toggleItem={toggleItem} sequence={sequence} moveStep={moveStep} detectiveChoice={detectiveChoice} setDetectiveChoice={(value) => { setDetectiveChoice(value); setError(''); onFeedback('tap'); }} allocation={allocation} changeAllocation={changeAllocation} headline={headline} setHeadline={(value) => { setHeadline(value); setError(''); onFeedback('tap'); }} matching={matching} matchingPairs={matchingPairs} matchingOptions={matchingOptions} activeMatch={activeMatch} onSelectMatch={(leftId) => { setMatching((previous) => { const next = { ...previous }; delete next[leftId]; return next; }); setActiveMatch(leftId); onFeedback('tap'); }} onChooseMatch={(rightId) => { if (!activeMatch) return; setMatching((previous) => ({ ...previous, [activeMatch]: rightId })); setActiveMatch(''); setError(''); onFeedback('success'); }} />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="challenge-actions"><button className="button button-primary" disabled={busy} onClick={submit}>{busy ? 'Tommy revisa tu misión…' : <>Completar y ganar <Coins size={16} /> +{event.gamification.coinsPerChallenge + event.gamification.coinsPerBadge}</>}</button></div>
         <p className="challenge-footnote"><CircleHelp size={14} /> Prueba, explora y aprende. Cada misión es individual.</p>
@@ -434,7 +462,7 @@ function ProgramDetail({ event, program, progress, updateProgress, onNextAction,
   </div></main>;
 }
 
-function GameBoard({ challenge, selectedItems, toggleItem, sequence, moveStep, detectiveChoice, setDetectiveChoice, allocation, changeAllocation, headline, setHeadline, matching, activeMatch, onSelectMatch, onChooseMatch }) {
+function GameBoard({ challenge, selectedItems, toggleItem, sequence, moveStep, detectiveChoice, setDetectiveChoice, allocation, changeAllocation, headline, setHeadline, matching, matchingPairs, matchingOptions, activeMatch, onSelectMatch, onChooseMatch }) {
   if (challenge.type === 'builder') return <div className="ingredient-game"><div className="game-counter"><span>Tu plato</span><strong>{selectedItems.length}/{challenge.maximumSelections} ingredientes</strong></div><div className="plate-preview"><span className="plate-icon">🍽️</span>{selectedItems.length ? selectedItems.map((id) => <span className="plate-food" key={id}>{challenge.items.find((item) => item.id === id)?.emoji}</span>) : <small>Agrega alimentos variados</small>}</div><div className="game-item-grid">{challenge.items.map((item) => <button key={item.id} className={`food-tile ${selectedItems.includes(item.id) ? 'selected' : ''}`} type="button" aria-pressed={selectedItems.includes(item.id)} onClick={() => toggleItem(item.id, challenge.maximumSelections)}><span className="food-emoji">{item.emoji}</span><strong>{item.label}</strong><small>{item.displayGroup || item.group}</small></button>)}</div></div>;
   if (challenge.type === 'market') {
     const cost = selectedItems.reduce((sum, id) => sum + challenge.items.find((item) => item.id === id).cost, 0);
@@ -447,7 +475,7 @@ function GameBoard({ challenge, selectedItems, toggleItem, sequence, moveStep, d
     return <div className="allocation-game"><div className="allocation-header"><span>Fichas asignadas</span><strong className={used === challenge.totalTokens ? 'ready' : ''}>{used}<small> / {challenge.totalTokens}</small></strong></div>{challenge.buckets.map((bucket) => <div className="allocation-row" key={bucket.id}><span className="allocation-emoji">{bucket.emoji}</span><div className="allocation-name"><strong>{bucket.label}</strong><small>{allocation[bucket.id] || 0} fichas</small></div><div className="allocation-controls"><button type="button" aria-label={`Quitar ficha de ${bucket.label}`} disabled={(allocation[bucket.id] || 0) <= 0} onClick={() => changeAllocation(bucket.id, -1)}>−</button><span>{allocation[bucket.id] || 0}</span><button type="button" aria-label={`Agregar ficha a ${bucket.label}`} onClick={() => changeAllocation(bucket.id, 1)}>+</button></div></div>)}<div className="token-rail">{Array.from({ length: challenge.totalTokens }, (_, index) => <span className={index < used ? 'used' : ''} key={index}><Coins size={15} /></span>)}</div></div>;
   }
   if (challenge.type === 'headline') return <div className="headline-game"><div className="headline-chart">{challenge.metrics.map((metric) => <div className="headline-metric" key={metric.label}><span>{metric.label}</span><strong>{metric.before}<ArrowRight size={14} />{metric.after}</strong></div>)}</div><div className="headline-builder"><span>Las ventas</span><select value={headline.sales} onChange={(e) => setHeadline({ ...headline, sales: e.target.value })} aria-label="Comportamiento de las ventas"><option value="">elige…</option>{challenge.headlineOptions.sales.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}</select><span>y las devoluciones</span><select value={headline.returns} onChange={(e) => setHeadline({ ...headline, returns: e.target.value })} aria-label="Comportamiento de las devoluciones"><option value="">elige…</option>{challenge.headlineOptions.returns.map((option) => <option value={option.id} key={option.id}>{option.label}</option>)}</select><span>.</span></div><p className="headline-preview">“Las ventas {challenge.headlineOptions.sales.find((item) => item.id === headline.sales)?.label || '…'} y las devoluciones {challenge.headlineOptions.returns.find((item) => item.id === headline.returns)?.label || '…'}.”</p></div>;
-  if (challenge.type === 'match') return <div className="match-game"><p className="game-instruction">Elige una pista a la izquierda y luego su pareja a la derecha:</p><div className="match-columns"><div className="match-column"><span className="match-label">PISTAS</span>{challenge.pairs.map((pair) => <button type="button" key={pair.id} className={`match-card ${activeMatch === pair.id ? 'selected' : ''} ${matching[pair.id] ? 'matched' : ''}`} onClick={() => onSelectMatch(pair.id)} aria-pressed={activeMatch === pair.id}><span>{pair.prompt}</span><small>{matching[pair.id] ? `✓ ${challenge.options.find((option) => option.id === matching[pair.id])?.label}` : 'Elige su pareja'}</small></button>)}</div><div className="match-column"><span className="match-label">DECISIONES</span>{challenge.options.map((option) => { const linkedPair = Object.entries(matching).find(([, optionId]) => optionId === option.id)?.[0]; return <button type="button" key={option.id} className={`match-card match-option ${activeMatch === linkedPair && linkedPair ? 'selected' : ''} ${linkedPair ? 'matched' : ''}`} disabled={!activeMatch || Boolean(linkedPair && linkedPair !== activeMatch)} onClick={() => onChooseMatch(option.id)}><span>{option.label}</span><small>{linkedPair ? 'Conectada' : activeMatch ? 'Toca para conectar' : 'Selecciona una pista'}</small></button>; })}</div></div></div>;
+  if (challenge.type === 'match') return <div className="match-game"><p className="game-instruction">Elige una pista a la izquierda y luego su pareja a la derecha:</p><div className="match-columns"><div className="match-column"><span className="match-label">PISTAS</span>{matchingPairs.map((pair) => <button type="button" key={pair.id} className={`match-card ${activeMatch === pair.id ? 'selected' : ''} ${matching[pair.id] ? 'matched' : ''}`} onClick={() => onSelectMatch(pair.id)} aria-pressed={activeMatch === pair.id}><span>{pair.prompt}</span><small>{matching[pair.id] ? `✓ ${challenge.options.find((option) => option.id === matching[pair.id])?.label}` : 'Elige su pareja'}</small></button>)}</div><div className="match-column"><span className="match-label">DECISIONES</span>{matchingOptions.map((option) => { const linkedPair = Object.entries(matching).find(([, optionId]) => optionId === option.id)?.[0]; return <button type="button" key={option.id} className={`match-card match-option ${activeMatch === linkedPair && linkedPair ? 'selected' : ''} ${linkedPair ? 'matched' : ''}`} disabled={!activeMatch || Boolean(linkedPair && linkedPair !== activeMatch)} onClick={() => onChooseMatch(option.id)}><span>{option.label}</span><small>{linkedPair ? 'Conectada' : activeMatch ? 'Toca para conectar' : 'Selecciona una pista'}</small></button>; })}</div></div></div>;
   return null;
 }
 

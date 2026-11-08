@@ -50,6 +50,21 @@
 @media(max-width:360px){.topbar{padding-inline:6px}.brand-logo{width:80px}.brand-divider{display:none}.brand-copy strong{max-width:54px;font-size:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand-copy small{display:none}.topbar-right{gap:2px}.user-greeting svg{display:none}.user-greeting strong{max-width:48px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.header-progress{padding:4px}.topbar .coin-counter{padding:4px}.topbar .feedback-controls{padding-left:2px}.topbar .icon-toggle{width:24px;height:25px}.welcome-layout .register-card{padding-inline:11px}}
 @media(max-height:780px) and (min-width:761px){.topbar{min-height:64px;padding-block:5px}.welcome-layout.page-wrap{padding-block:8px}.welcome-layout .register-card{padding-block:13px 10px}.register-card .card-subtitle{margin-bottom:7px}.welcome-layout .registration-form{gap:5px}.welcome-layout .registration-form input:not([type=checkbox]){height:32px}.welcome-layout .button{height:35px}.welcome-layout .secure-note{display:none}}
 
+/* Download the visible passport card and spotlight the badge earned by each level. */
+.passport-card-visual{isolation:isolate}
+.achievement-badge-card{display:flex;align-items:center;gap:15px;width:min(100%,440px);margin:4px auto 13px;padding:14px;border:1px solid #efd98f;border-radius:18px;background:linear-gradient(130deg,#fff9e6,#fff 72%);box-shadow:0 15px 40px #96731814;text-align:left;animation:badge-arrive .38s cubic-bezier(.2,.8,.25,1) both}
+.achievement-badge-medallion{position:relative;display:grid;place-items:center;width:94px;height:94px;flex:none;border:3px solid #e8c158;border-radius:28px;background:radial-gradient(circle at 50% 35%,#283a60,#111e3b 76%);box-shadow:0 5px 16px #15213d25,0 0 0 5px #f8edc7;overflow:hidden}
+.achievement-badge-medallion>img{width:90%;height:90%;object-fit:contain}
+.achievement-badge-medallion>span{position:absolute;right:1px;bottom:1px;display:grid;place-items:center;width:29px;height:29px;border:2px solid #fff;border-radius:50%;background:#edc85a;color:#5f4709}
+.achievement-badge-card>div:last-child{display:grid;gap:5px;min-width:0}
+.achievement-badge-kicker{color:#94721b;font-size:8px;font-weight:800;letter-spacing:.1em}
+.achievement-badge-card strong{color:#1c2c46;font:800 16px/1.25 Manrope,sans-serif}
+.achievement-badge-card small{color:#7d8794;font-size:9px;line-height:1.4}
+.achievement-feedback{margin:0 auto 16px!important}
+.passport-download .form-error{flex-basis:100%}
+@keyframes badge-arrive{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:420px){.achievement-badge-card{gap:12px;padding:12px}.achievement-badge-medallion{width:76px;height:76px;border-radius:24px}.achievement-badge-card strong{font-size:14px}.achievement-badge-kicker{font-size:7px}}
+
 /* Refinamientos de navegación móvil, pasaporte y arte de Tommy. */
 .map-greeting{margin:0 0 5px;color:#273b61;font:800 16px/1.25 Manrope,sans-serif;letter-spacing:-.02em}
 .passport-card-visual.in-progress{opacity:.58;filter:saturate(.55)}
