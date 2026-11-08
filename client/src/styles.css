@@ -82,3 +82,9 @@
 @media(max-width:390px){.match-columns{grid-template-columns:1fr}.match-column{grid-template-columns:1fr 1fr}.match-label{grid-column:1/-1}.journey-tabs button{min-height:46px}}
 @media(max-width:760px){.tommy-fab{bottom:calc(78px + env(safe-area-inset-bottom))}.node-tommy img{mix-blend-mode:screen}}
 .node-tommy img{mix-blend-mode:screen}
+
+/* Barra inferior persistente: top debe quedar auto para evitar que se estire a pantalla completa. */
+.journey-page{padding-bottom:110px}
+.journey-tabs{position:fixed;top:auto;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;transform:translateX(-50%);display:flex;flex-direction:row;align-items:stretch;width:min(640px,calc(100% - 32px));height:auto;max-height:68px;margin:0;padding:5px;gap:4px}
+.journey-tabs button{height:50px;min-height:50px;max-height:58px;flex:1 1 0;align-self:stretch}
+@media(max-width:760px){.journey-page{padding-bottom:calc(104px + env(safe-area-inset-bottom))}.journey-tabs{top:auto;bottom:calc(10px + env(safe-area-inset-bottom));width:calc(100% - 20px);height:auto;max-height:62px}.journey-tabs button{height:50px;min-height:46px;max-height:52px}}
