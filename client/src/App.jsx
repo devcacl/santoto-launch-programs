@@ -39,6 +39,7 @@ export default function App() {
   const [guide, setGuide] = useState(null);
   const [deviceTilt, setDeviceTilt] = useState({ beta: 0, gamma: 0 });
   const [motionEnabled, setMotionEnabled] = useState(false);
+  const [journeyTab, setJourneyTab] = useState('retos');
 
   async function enableMotion() {
     if (motionEnabled) return;
@@ -109,6 +110,7 @@ export default function App() {
   function onRegistered(data) {
     setUser(data.participant);
     setProgress(data.progress);
+    setJourneyTab('retos');
     setView('journey');
     setGuide({ title: '¡Este es tu pasaporte!', text: 'Ya está desbloqueado y lleva tu nombre. Aquí guardarás tus insignias y Tommy Coins; al completar las misiones del evento podrás descargarlo en tu celular.', image: event.mascot.welcomeImage });
     feedback.feedback('success');
@@ -122,6 +124,25 @@ export default function App() {
     setView('auditorium');
     setGuide({ title: 'Misión del auditorio', text: 'Escucha cada charla y, cuando termine, pide al ponente el código de asistencia. Guarda un sello por cada charla para completar esta parte del pasaporte.', image: event.mascot.welcomeImage });
   }
+  function continueFromProgram() {
+    const nextProgram = event.programs.find((program) => program.id !== activeProgram && !earnedPrograms.some((earned) => earned.id === program.id));
+    if (nextProgram) {
+      setActiveProgram(nextProgram.id);
+      setView('program');
+      return;
+    }
+    openAuditorium();
+  }
+  function openPreference() {
+    setView('finish');
+    setGuide({ title: '¡Insignia Voz del futuro obtenida!', text: 'Completaste el auditorio. Elige ahora el programa que más te interesa para cerrar tu pasaporte.', image: event.mascot.welcomeImage });
+  }
+  function onPreferenceSaved(choice) {
+    setUser((previous) => ({ ...previous, preferred_program: choice }));
+    setJourneyTab('pasaporte');
+    setView('journey');
+    setGuide({ title: '¡Pasaporte completo y desbloqueado!', text: 'Tu recorrido y tu preferencia ya están guardados. Abre “Mi pasaporte” para revisarlo o descargarlo en tu celular.', image: event.mascot.welcomeImage });
+  }
   if (!event || view === 'loading') return <main className="loading-screen"><div className="loader-mark"><Sparkles size={24} /></div><p>Tommy está preparando tu pasaporte…</p></main>;
   if (view === 'unavailable') return <main className="loading-screen"><CircleHelp size={30} /><h1>No podemos conectar ahora</h1><p>{loadError || 'Vuelve a intentarlo en un momento.'}</p><button className="button button-primary" onClick={() => location.reload()}>Reintentar</button></main>;
   const tommyGuideImage = view === 'program' ? event.mascot.programImages[activeProgram] || event.mascot.welcomeImage : event.mascot.welcomeImage;
@@ -133,10 +154,10 @@ export default function App() {
     </header>
 
     {view === 'welcome' && <Welcome event={event} onRegistered={onRegistered} />}
-    {view === 'journey' && <Journey event={event} user={user} progress={progress} earnedPrograms={earnedPrograms} auditoriumEarned={auditoriumEarned} percent={percent} setView={setView} onOpenProgram={openProgram} onOpenAuditorium={openAuditorium} deviceTilt={deviceTilt} motionEnabled={motionEnabled} onEnableMotion={enableMotion} />}
-    {view === 'program' && <ProgramDetail key={activeProgram} event={event} program={event.programs.find((program) => program.id === activeProgram)} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} onGuide={(challenge, currentProgram) => { const key = `challenge:${currentProgram.id}:${challenge.id}`; if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, 'seen'); setGuide({ title: challenge.title, text: currentProgram.guide, image: event.mascot.programImages[currentProgram.id] || event.mascot.welcomeImage }); } }} />}
-    {view === 'auditorium' && <Auditorium event={event} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
-    {view === 'finish' && <Finish event={event} user={user} progress={progress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
+    {view === 'journey' && <Journey event={event} user={user} progress={progress} earnedPrograms={earnedPrograms} auditoriumEarned={auditoriumEarned} percent={percent} setView={setView} tab={journeyTab} setTab={setJourneyTab} onOpenProgram={openProgram} onOpenAuditorium={openAuditorium} deviceTilt={deviceTilt} motionEnabled={motionEnabled} onEnableMotion={enableMotion} />}
+    {view === 'program' && <ProgramDetail key={activeProgram} event={event} program={event.programs.find((program) => program.id === activeProgram)} progress={progress} updateProgress={updateProgress} onNextAction={continueFromProgram} onBack={() => setView('journey')} onFeedback={feedback.feedback} onGuide={(challenge, currentProgram) => { const key = `challenge:${currentProgram.id}:${challenge.id}`; if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, 'seen'); setGuide({ title: challenge.title, text: currentProgram.guide, image: event.mascot.programImages[currentProgram.id] || event.mascot.welcomeImage }); } }} />}
+    {view === 'auditorium' && <Auditorium event={event} progress={progress} updateProgress={updateProgress} onComplete={openPreference} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
+    {view === 'finish' && <Finish event={event} user={user} progress={progress} onComplete={onPreferenceSaved} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
     {view !== 'welcome' && <footer className="site-footer"><span>Universidad Santo Tomás · Seccional Tunja</span><a href={event.privacyUrl} target="_blank" rel="noreferrer">Autorización de datos personales <ArrowRight size={13} /></a></footer>}
     {view !== 'welcome' && <button type="button" className="tommy-fab" onClick={() => setGuide({ title: 'Aquí estoy para ayudarte', text: 'Avanza por los niveles en orden. Si necesitas una pista, vuelve aquí cuando quieras.', image: tommyGuideImage })} aria-label="Pedir ayuda a Tommy"><img src={tommyGuideImage} alt="" /><span>Tommy</span></button>}
     {guide && <div className="guide-backdrop"><section className="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-title"><div className="guide-dialog-art"><img src={guide.image} alt="Tommy" /></div><div className="guide-dialog-copy"><span className="eyebrow">TOMMY TE CUENTA</span><h2 id="guide-title">{guide.title}</h2><p>{guide.text}</p><button className="button button-primary guide-continue" onClick={() => setGuide(null)}>{view === 'welcome' ? 'Entendido, empezar' : 'Entendido, continuar'} <ArrowRight size={17} /></button><small>El sonido y el movimiento del teléfono son opcionales y se pueden apagar.</small></div></section></div>}
@@ -182,8 +203,7 @@ function Welcome({ event, onRegistered }) {
   </main>;
 }
 
-function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, percent, setView, onOpenProgram, onOpenAuditorium, deviceTilt, motionEnabled, onEnableMotion }) {
-  const [tab, setTab] = useState('retos');
+function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, percent, setView, tab, setTab, onOpenProgram, onOpenAuditorium, deviceTilt, motionEnabled, onEnableMotion }) {
   const finished = earnedPrograms.length === event.programs.length && auditoriumEarned;
   const totalBadges = event.programs.reduce((total, program) => total + program.challenges.length, 0) + (event.talks.length ? 1 : 0);
   const totalChallenges = event.programs.reduce((sum, program) => sum + program.challenges.length, 0);
@@ -305,7 +325,7 @@ function MissionBadge({ title, programName, image, earned, serial, tilt }) {
   </article>;
 }
 
-function ProgramDetail({ event, program, progress, updateProgress, onBack, onFeedback, onGuide }) {
+function ProgramDetail({ event, program, progress, updateProgress, onNextAction, onBack, onFeedback, onGuide }) {
   const [selectedItems, setSelectedItems] = useState([]);
   const [sequence, setSequence] = useState(program?.challenges[0]?.items?.map((item) => item.id) || []);
   const [detectiveChoice, setDetectiveChoice] = useState('');
@@ -328,8 +348,11 @@ function ProgramDetail({ event, program, progress, updateProgress, onBack, onFee
     setAllocation(Object.fromEntries((current.buckets || []).map((bucket) => [bucket.id, 0])));
     setHeadline({ sales: '', returns: '' });
     setError('');
-    onGuide(current, program);
   }, [current?.id]);
+
+  useEffect(() => {
+    if (current) onGuide(current, program);
+  }, []);
 
   if (!program) return null;
   function buildAnswer() {
@@ -385,10 +408,16 @@ function ProgramDetail({ event, program, progress, updateProgress, onBack, onFee
     setError(''); onFeedback('tap');
   }
 
+  function continueAfterAchievement() {
+    if (allDone) { onNextAction(); return; }
+    setCelebration(null);
+    if (current) onGuide(current, program);
+  }
+
   return <main className="page-wrap inner-page"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Volver al mapa</button><div className={`challenge-layout ${program.tone}`}>
     <aside className="challenge-sidebar"><div className="program-symbol large">{iconFor(program.icon, 28)}</div><p className="eyebrow">MISIÓN INDIVIDUAL</p><h1>{program.name}</h1><p>{program.tagline}</p><div className="challenge-steps">{program.challenges.map((item, index) => { const done = completedIds.includes(item.id); const active = item.id === current?.id; return <div key={item.id} className={`challenge-step ${done ? 'complete' : active ? 'active' : ''}`}><span>{done ? <Check size={14} /> : active ? iconFor(program.icon, 13) : <LockKeyhole size={12} />}</span><div><strong>{item.title}</strong><small>{done ? 'Completado' : active ? `${gameLabels[item.type]} · ${item.duration}` : 'Bloqueado'}</small></div></div>; })}</div><Badge title={program.badge} earned={allDone} icon={iconFor(program.icon, 14)} /></aside>
     <section className="challenge-content">
-      {celebration ? <div className="level-celebration"><div className="win-illustration"><Coins size={39} /></div><p className="eyebrow">¡NIVEL COMPLETADO!</p><h2>+{celebration.coinsAwarded} Tommy Coins</h2><p>{celebration.feedback}</p>{celebration.badgeEarned && <div className="new-badge-banner"><Trophy size={18} /><span>¡Insignia de Tommy desbloqueada y guardada en tu colección!</span></div>}<button className="button button-primary" onClick={() => setCelebration(null)}>Seguir el mapa <ArrowRight size={17} /></button></div> : allDone ? <div className="challenge-done"><div className="win-illustration"><Trophy size={40} /></div><p className="eyebrow">¡MISIÓN COMPLETADA!</p><h2>Insignia<br /><span>{program.badge}</span></h2><p>Tommy guardó tu logro en el pasaporte. ¡Puedes continuar con la otra misión!</p><button className="button button-primary" onClick={onBack}>Volver al mapa <ArrowRight size={17} /></button></div> : <>
+      {celebration ? <div className="level-celebration"><div className="win-illustration"><Trophy size={39} /></div><p className="eyebrow">¡LOGRO OBTENIDO!</p><h2>{celebration.challengeTitle}</h2><p>+{celebration.coinsAwarded} Tommy Coins · {celebration.feedback}</p>{celebration.badgeEarned && <div className="new-badge-banner"><Trophy size={18} /><span>¡Insignia de Tommy desbloqueada y guardada en tu colección!</span></div>}<button className="button button-primary" onClick={continueAfterAchievement}>{allDone ? 'Ir a la siguiente misión' : 'Continuar al siguiente reto'} <ArrowRight size={17} /></button></div> : allDone ? <div className="challenge-done"><div className="win-illustration"><Trophy size={40} /></div><p className="eyebrow">¡MISIÓN COMPLETADA!</p><h2>Insignia<br /><span>{program.badge}</span></h2><p>Tommy guardó tu logro en el pasaporte. ¡Puedes continuar con la otra misión!</p><button className="button button-primary" onClick={onNextAction}>Ir a la siguiente misión <ArrowRight size={17} /></button></div> : <>
         <div className="challenge-content-head"><span className="eyebrow">NIVEL {String(completedIds.length + 1).padStart(2, '0')} DE 03</span><span className="time-chip">✦ {gameLabels[current.type]} · {current.duration}</span></div><div className="challenge-progress-full"><span style={{ width: `${(completedIds.length / program.challenges.length) * 100}%` }} /></div>
         <div className="question-block"><h2>{current.title}</h2><p>{current.prompt}</p></div>
         <GameBoard challenge={current} selectedItems={selectedItems} toggleItem={toggleItem} sequence={sequence} moveStep={moveStep} detectiveChoice={detectiveChoice} setDetectiveChoice={(value) => { setDetectiveChoice(value); setError(''); onFeedback('tap'); }} allocation={allocation} changeAllocation={changeAllocation} headline={headline} setHeadline={(value) => { setHeadline(value); setError(''); onFeedback('tap'); }} />
@@ -416,7 +445,7 @@ function GameBoard({ challenge, selectedItems, toggleItem, sequence, moveStep, d
   return null;
 }
 
-function Auditorium({ event, progress, updateProgress, onBack, onFeedback }) {
+function Auditorium({ event, progress, updateProgress, onComplete, onBack, onFeedback }) {
   const [codes, setCodes] = useState({});
   const [error, setError] = useState({});
   const [awards, setAwards] = useState({});
@@ -434,6 +463,7 @@ function Auditorium({ event, progress, updateProgress, onBack, onFeedback }) {
       setAwards((previous) => ({ ...previous, [talk.id]: data.coinsAwarded }));
       setCodes((previous) => ({ ...previous, [talk.id]: '' }));
       onFeedback('coin');
+      if (event.talks.every((item) => data.progress.talks.some((row) => row.talk_id === item.id))) window.setTimeout(onComplete, 2200);
     } catch (err) { setError((previous) => ({ ...previous, [talk.id]: err.message })); onFeedback('tap'); }
     finally { setBusyId(''); }
   }
@@ -441,12 +471,12 @@ function Auditorium({ event, progress, updateProgress, onBack, onFeedback }) {
   return <main className="page-wrap inner-page"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Volver al mapa</button><section className="auditorium-page"><div className="auditorium-banner"><span className="banner-icon"><Mic2 size={28} /></span><p className="eyebrow">{event.eventName} · MISIÓN FINAL</p><h1>Escucha.<br /><span>Conecta ideas.</span></h1><p>Cada ponente compartirá un código distinto. Registra cada charla para completar el pasaporte.</p><div className="auditorium-event-details"><strong>{event.eventDate} · {event.eventTime}</strong><span>{event.eventVenue}</span></div><div className="speaker-art"><span /><span /><span /></div><div className="auditorium-mascot"><img src={event.mascot.welcomeImage} alt="Tommy te acompaña en el auditorio" /></div></div><div className="talks-panel"><div className="section-heading"><div><p className="eyebrow">PASAPORTE DE CHARLAS</p><h2>Tres ideas para tu futuro</h2></div><span className="count-label">{checked.length}/{event.talks.length} completas</span></div><div className="talk-list">{event.talks.map((talk, index) => { const isDone = checked.includes(talk.id); return <article className={`talk-row ${isDone ? 'checked' : ''}`} key={talk.id}><span className="talk-index">{isDone ? <Check size={15} /> : `0${index + 1}`}</span><div className="talk-info"><strong>{talk.title}</strong><span>{talk.speaker}</span>{isDone ? <span className="attendance-done"><CheckCircle2 size={14} /> Sello guardado en tu pasaporte</span> : <div className="talk-code-entry"><label className="sr-only" htmlFor={`code-${talk.id}`}>Código para {talk.label}</label><input id={`code-${talk.id}`} value={codes[talk.id] || ''} onChange={(e) => setCodes((previous) => ({ ...previous, [talk.id]: e.target.value }))} placeholder={`Código de ${talk.label}`} autoComplete="off" maxLength="40" /><button type="button" className="text-button" disabled={!codes[talk.id]?.trim() || busyId === talk.id} onClick={() => checkIn(talk)}>{busyId === talk.id ? 'Validando…' : 'Guardar asistencia'} <ArrowRight size={14} /></button></div>}{error[talk.id] && <span className="talk-error" role="alert">{error[talk.id]}</span>}</div></article>; })}</div>{earned && <div className="auditorium-earned"><Trophy size={21} /><div><strong>¡Insignia Voz del futuro desbloqueada!</strong><span>+{event.gamification.coinsPerAuditoriumBadge} Tommy Coins · {event.rewards.description}</span></div></div>}<p className="challenge-footnote"><LockKeyhole size={14} /> Cada charla se registra una sola vez con un código propio.</p></div></section></main>;
 }
 
-function Finish({ event, user, progress, onBack, onFeedback }) {
+function Finish({ event, user, progress, onComplete, onBack, onFeedback }) {
   const [choice, setChoice] = useState(user.preferred_program || ''); const [saved, setSaved] = useState(false); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   async function save() {
     if (!choice) return setError('Elige un programa o marca “Aún no lo sé”.');
     setError(''); setBusy(true);
-    try { await request('/me/preference', { method: 'PATCH', body: JSON.stringify({ program: choice }) }); setSaved(true); onFeedback('success'); }
+    try { await request('/me/preference', { method: 'PATCH', body: JSON.stringify({ program: choice }) }); setSaved(true); onFeedback('success'); window.setTimeout(() => onComplete(choice), 1200); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
