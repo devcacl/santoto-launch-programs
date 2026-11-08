@@ -7,7 +7,7 @@
   "eventTime": "9:00 a. m. – 11:00 a. m.",
   "eventVenue": "Auditorio Mayor de la Av. Universitaria",
   "privacyUrl": "https://santototunja.edu.co/wp-content/uploads/2025/10/Autorizacion-para-el-uso-y-almacenamiento-de-datos-personales.pdf",
-  "mascot": { "name": "Tommy", "welcomeImage": "/images/tommy/welcome.png", "programImages": { "nutrition": "/images/tommy/nutrition.png", "business-intelligence": "/images/tommy/business.png" } },
+  "mascot": { "name": "Tommy", "welcomeImage": "/images/tommy/welcome-transparent.png", "programImages": { "nutrition": "/images/tommy/nutrition-transparent.png", "business-intelligence": "/images/tommy/business-transparent.png" } },
   "gamification": { "coinsPerChallenge": 25, "coinsPerTalk": 15, "coinsPerBadge": 50, "coinsPerAuditoriumBadge": 75 },
   "programs": [
     {

@@ -8,9 +8,13 @@ const games = [
   ['nutrition', 'plate-builder', ['arroz', 'frijoles', 'tomate']],
   ['nutrition', 'market-basket', ['lentejas', 'maiz', 'manzana']],
   ['nutrition', 'safe-route', ['wash', 'prepare', 'cook', 'store']],
+  ['nutrition', 'nutrient-match', { energy: 'grains', variety: 'produce', hydration: 'water', fiber: 'whole', context: 'family' }],
+  ['nutrition', 'balanced-snack', { energy: 4, fresh: 4, protein: 4 }],
   ['business-intelligence', 'dashboard-detective', 'checkout'],
   ['business-intelligence', 'budget-allocation', { research: 3, pilot: 4, measure: 3 }],
   ['business-intelligence', 'evidence-headline', 'sales-up|returns-down'],
+  ['business-intelligence', 'metric-match', { conversion: 'desired-action', abandonment: 'drop-off', retention: 'returning', basket: 'amount', service: 'speed' }],
+  ['business-intelligence', 'insight-sequence', ['ask', 'collect', 'clean', 'analyze', 'communicate']],
 ];
 
 export const options = {

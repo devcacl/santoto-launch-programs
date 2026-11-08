@@ -216,7 +216,7 @@ function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, perc
     {tab === 'retos' && <>
     <div className="map-heading"><div><p className="map-greeting">¡Hola, {user.first_name}!</p><p className="eyebrow">TU MAPA DE AVENTURA</p><h2>Una misión, paso a paso</h2></div><span className="count-label">{progress.challenges.length} de {totalChallenges} niveles</span></div>
     <section className="adventure-map">
-      {event.programs.map((program, programIndex) => <ProgramPath key={program.id} program={program} programIndex={programIndex} progress={progress} onOpen={() => onOpenProgram(program.id)} />)}
+      {event.programs.map((program, programIndex) => <ProgramPath key={program.id} program={program} programIndex={programIndex} progress={progress} mascotImage={event.mascot.programImages[program.id] || event.mascot.welcomeImage} onOpen={() => onOpenProgram(program.id)} />)}
       <AuditoriumMapNode event={event} progress={progress} auditoriumEarned={auditoriumEarned} onOpen={onOpenAuditorium} />
     </section>
     <section className="side-card coin-explainer"><div className="coin-big"><Coins size={25} /></div><p className="eyebrow">TOMMY COINS</p><h3>Un recuerdo de cada logro</h3><p>Ganas monedas simbólicas al completar retos, misiones e intervenciones. Son parte de tu pasaporte y no se canjean por premios.</p><span className="coin-balance"><Coins size={15} /> {progress.coins} acumuladas</span></section>
@@ -254,11 +254,10 @@ function PassportCard({ event, user, progress, percent, finished, totalActivitie
   </section>;
 }
 
-function ProgramPath({ program, programIndex, progress, onOpen }) {
+function ProgramPath({ program, programIndex, progress, mascotImage, onOpen }) {
   const completed = program.challenges.filter((challenge) => progress.challenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id));
   const nextChallenge = program.challenges.find((challenge) => !completed.some((item) => item.id === challenge.id));
   const allDone = !nextChallenge;
-  const mascot = program.id === 'nutrition' ? '/images/tommy/nutrition.png' : '/images/tommy/business.png';
   return <article className={`path-section ${program.tone}`}>
     <div className="path-section-head"><div className="path-program-icon">{iconFor(program.icon, 23)}</div><div className="path-program-copy"><span className="path-kicker">MISIÓN 0{programIndex + 1}</span><h3>{program.name}</h3><p>{program.description}</p></div><span className="path-total">{completed.length}/{program.challenges.length} niveles</span></div>
     <div className="level-path">{program.challenges.map((challenge, index) => {
@@ -270,7 +269,7 @@ function ProgramPath({ program, programIndex, progress, onOpen }) {
           <span className="node-circle">{done ? <Check size={20} /> : available ? iconFor(program.icon, 20) : <LockKeyhole size={17} />}</span>
           <span className="node-title">{challenge.title}</span><span className="node-type">{done ? 'COMPLETADO' : available ? `${gameLabels[challenge.type] || 'Juega'} · ${challenge.duration}` : 'BLOQUEADO'}</span>
         </button>
-        {available && <span className="node-tommy"><img src={mascot} alt="" /></span>}
+        {available && <span className="node-tommy"><img src={mascotImage} alt="" /></span>}
       </div>;
     })}<div className={`badge-stop ${allDone ? 'unlocked' : 'locked'}`}><span>{allDone ? <Trophy size={20} /> : <LockKeyhole size={17} />}</span><strong>Insignia</strong><small>{allDone ? program.badge : `Completa los ${program.challenges.length} niveles`}</small></div></div>
   </article>;
@@ -296,7 +295,7 @@ function MissionBadge({ title, programName, image, earned, serial, tilt }) {
     context.fillStyle = gradient; context.fillRect(0, 0, 900, 1100);
     context.fillStyle = '#12213a'; context.beginPath(); context.roundRect(52, 52, 796, 996, 54); context.fill();
     context.strokeStyle = '#e7bd56'; context.lineWidth = 16; context.beginPath(); context.arc(450, 420, 296, 0, Math.PI * 2); context.stroke();
-    context.save(); context.beginPath(); context.arc(450, 420, 278, 0, Math.PI * 2); context.clip(); context.globalCompositeOperation = 'screen'; context.drawImage(art, 177, 147, 546, 546); context.restore();
+    context.save(); context.beginPath(); context.arc(450, 420, 278, 0, Math.PI * 2); context.clip(); context.drawImage(art, 177, 147, 546, 546); context.restore();
     context.textAlign = 'center'; context.fillStyle = '#a4ead0'; context.font = '700 30px Arial'; context.fillText(`${programName.toLocaleUpperCase('es')} · INSIGNIA ${serial}`, 450, 790);
     context.fillStyle = '#ffffff'; context.font = '700 43px Arial';
     const lines = []; let line = '';

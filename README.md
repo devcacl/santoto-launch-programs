@@ -85,12 +85,12 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 ## Pasaporte y controles de experiencia
 
 - El recorrido es individual. Los nodos del mapa se desbloquean en orden por programa; el auditorio aparece al completar las dos misiones.
-- Hay seis minijuegos: construir un plato, armar una canasta con presupuesto, ordenar una secuencia, investigar un tablero, distribuir fichas y crear un titular a partir de métricas.
+- Hay diez minijuegos configurables: cinco de Nutrición y Dietética y cinco de Inteligencia de Negocios. Incluyen construcción y asignación, secuencias, parejas, investigación de datos y comunicación de hallazgos.
 - Tommy Coins se suman al completar niveles y charlas. Son puntos simbólicos; no hay premios ni canje asociados.
 - Los sonidos y la vibración son controles opcionales en la barra superior. La vibración depende del dispositivo y navegador.
 - Tommy guía desde un botón flotante en la esquina inferior derecha. La bienvenida, el inicio de cada nivel, las instrucciones del auditorio y las pistas se presentan en una pantalla que requiere confirmación antes de continuar.
-- Cada uno de los seis niveles desbloquea una insignia ilustrada con el modelo de Tommy correspondiente. Las insignias se conservan en el pasaporte asociado al registro y se pueden descargar como PNG al dispositivo.
-- La experiencia autenticada tiene navegación horizontal entre **Mis retos**, **Mi pasaporte** y **Mis insignias**. El pasaporte se muestra desbloqueado desde el inicio; Tommy lo presenta y la descarga de la tarjeta se habilita al terminar las seis misiones y las tres charlas.
+- Cada nivel desbloquea una insignia ilustrada con el modelo de Tommy correspondiente. Las insignias se conservan en el pasaporte asociado al registro y se pueden descargar como PNG al dispositivo.
+- La experiencia autenticada tiene navegación horizontal entre **Mis retos**, **Mi pasaporte** y **Mis insignias**. El pasaporte se muestra desbloqueado desde el inicio; Tommy lo presenta y la descarga de la tarjeta se habilita al terminar las diez misiones y las tres charlas.
 - La cabecera única combina el logo institucional, EVOLUCIONA-T, controles de sonido/vibración, Tommy Coins y el saludo del aspirante. En el registro, el formulario aparece inmediatamente debajo de la cabecera.
 - La identidad visual toma como referencia los colores del evento; el afiche se usó solo como referencia y no aparece en la página. El logo proviene de los [recursos gráficos institucionales](https://santototunja.edu.co/documentos-institucionales).
 - La fecha, el horario, el lugar y el enlace de autorización de datos se configuran en `server/src/config/event.json`.
@@ -130,12 +130,16 @@ El correo debe ser único por registro y la autorización de privacidad es oblig
 - **El tablero perdido:** Investigar en qué paso se abandonan las compras.
 - **Invierte tus fichas:** 3 en investigar clientes, 4 en probar una idea y 3 en medir resultados.
 - **Un titular con evidencia:** Las ventas aumentaron y las devoluciones bajaron.
+- **Conecta cada pista:** energía → cereales y tubérculos; variedad → productos de distintos colores; hidratación → agua; fibra → opciones integrales; contexto → gustos, cultura y presupuesto.
+- **Diseña una pausa equilibrada:** 4 fichas para energía, 4 para alimentos frescos y 4 para proteína.
+- **Empareja el dato con la pregunta:** conversión → proporción que completa la acción; abandono → paso donde se detienen; retención → personas que regresan; canasta → valor promedio; servicio → tiempo de respuesta.
+- **Del dato a la decisión:** definir pregunta → reunir fuentes → preparar datos → analizar patrones → comunicar hallazgo.
 
 Cada registro local agrega información de prueba a MariaDB. Usa un correo diferente al probar otro registro. Las preferencias de contacto y la preferencia final quedan almacenadas como datos de evento.
 
 ## Prueba de carga de recorrido completo
 
-`scripts/k6-event-flow.js` simula asistentes que crean lead, completan los seis retos, registran las tres charlas y guardan su preferencia. Ejecútalo solo contra staging o una base descartable; crea registros reales en la base configurada. `VUS=300` y `ITERATIONS_PER_VU=1` generan 300 usuarios virtuales concurrentes (no son 300 celulares físicos). Ejemplo para 300 asistentes:
+`scripts/k6-event-flow.js` simula asistentes que crean lead, completan los diez retos, registran las tres charlas y guardan su preferencia (15 solicitudes API por recorrido, 4.500 solicitudes con 300 VUs y una iteración cada uno). Ejecútalo solo contra staging o una base descartable; crea registros reales en la base configurada. `VUS=300` y `ITERATIONS_PER_VU=1` generan 300 usuarios virtuales concurrentes (no son 300 celulares físicos). Ejemplo para 300 asistentes:
 
 ```cmd
 set BASE_URL=https://staging.example.edu
@@ -150,7 +154,7 @@ k6 run scripts/k6-event-flow.js
 
 Usa códigos de staging privados y elimina únicamente los leads con el prefijo de la corrida cuando termines. No ejecutes esta prueba contra producción. Los umbrales configurados son menos de 1% de errores y p95 menor de 3 s; una corrida local no certifica el proveedor ni 300 dispositivos físicos.
 
-Validación local del 8 de noviembre de 2026: MariaDB 11.4, 300 VUs, 3.300 solicitudes de recorrido, 0 errores y p95 de 1,06 s. Los 300 leads de carga se eliminaron después. Esta medición cubre una sola máquina, no la infraestructura de la Universidad ni teléfonos físicos.
+Validación local del 8 de noviembre de 2026: MariaDB 11.4, 300 VUs, 3.300 solicitudes, 0 errores y p95 de 1,06 s. Esa medición corresponde a la versión anterior, con seis retos; los 300 leads de carga se eliminaron después. No certifica la versión actual de diez retos, la infraestructura de la Universidad ni teléfonos físicos. Repite la corrida actualizada antes de producción.
 
 ## Antes de producción
 
