@@ -127,23 +127,23 @@ export default function App() {
   const tommyGuideImage = view === 'program' ? event.mascot.programImages[activeProgram] || event.mascot.welcomeImage : event.mascot.welcomeImage;
 
   return <div className="app-shell">
-    <header className="topbar">
-      <button className="brand-lockup" onClick={() => setView(user ? 'journey' : 'welcome')} aria-label="Ir al inicio"><span className="brand-seal">S</span><span className="brand-copy"><strong>SANTOTO</strong><small>TUNJA · EXPERIENCIA</small></span></button>
-      <div className="topbar-right"><FeedbackControls feedback={feedback} />{user && <div className="coin-counter" aria-label={`${progress.coins} Tommy Coins`}><Coins size={17} /><strong>{progress.coins}</strong><span>Tommy Coins</span></div>}{user && <span className="user-greeting"><UserRound size={16} /> {user.first_name}</span>}</div>
+    <header className={`topbar ${user ? 'has-user' : 'is-welcome'}`}>
+      <button className="brand-lockup" onClick={() => setView(user ? 'journey' : 'welcome')} aria-label="Ir al inicio"><img className="brand-logo" src="/images/santoto-logo-wordmark.png" alt="Universidad Santo Tomás · Seccional Tunja" /><span className="brand-divider" /><span className="brand-copy"><strong>{event.eventName}</strong><small>EXPERIENCIA · TUNJA</small></span></button>
+      <div className="topbar-right">{user && <span className="user-greeting"><UserRound size={17} /><span><strong>¡Hola, {user.first_name}!</strong><small>Pasaporte explorador</small></span></span>}{user && <div className="header-progress" aria-label={`${percent}% del recorrido completado`}><strong>{percent}%</strong><span>avance</span></div>}{user && <div className="coin-counter" aria-label={`${progress.coins} Tommy Coins`}><Coins size={17} /><strong>{progress.coins}</strong><span>Tommy Coins</span></div>}<FeedbackControls feedback={feedback} /></div>
     </header>
 
-    {view === 'welcome' && <Welcome event={event} onRegistered={onRegistered} onFeedback={feedback.feedback} />}
+    {view === 'welcome' && <Welcome event={event} onRegistered={onRegistered} />}
     {view === 'journey' && <Journey event={event} user={user} progress={progress} earnedPrograms={earnedPrograms} auditoriumEarned={auditoriumEarned} percent={percent} setView={setView} onOpenProgram={openProgram} onOpenAuditorium={openAuditorium} deviceTilt={deviceTilt} motionEnabled={motionEnabled} onEnableMotion={enableMotion} />}
     {view === 'program' && <ProgramDetail key={activeProgram} event={event} program={event.programs.find((program) => program.id === activeProgram)} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} onGuide={(challenge, currentProgram) => { const key = `challenge:${currentProgram.id}:${challenge.id}`; if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, 'seen'); setGuide({ title: challenge.title, text: currentProgram.guide, image: event.mascot.programImages[currentProgram.id] || event.mascot.welcomeImage }); } }} />}
     {view === 'auditorium' && <Auditorium event={event} progress={progress} updateProgress={updateProgress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
     {view === 'finish' && <Finish event={event} user={user} progress={progress} onBack={() => setView('journey')} onFeedback={feedback.feedback} />}
-    <footer className="site-footer"><span>Universidad Santo Tomás · Seccional Tunja</span><a href={event.privacyUrl} target="_blank" rel="noreferrer">Privacidad y tratamiento de datos <ArrowRight size={13} /></a></footer>
-    <button type="button" className="tommy-fab" onClick={() => setGuide({ title: 'Aquí estoy para ayudarte', text: 'Avanza por los niveles en orden. Si necesitas una pista, vuelve aquí cuando quieras.', image: tommyGuideImage })} aria-label="Pedir ayuda a Tommy"><img src={tommyGuideImage} alt="" /><span>Tommy</span></button>
+    {view !== 'welcome' && <footer className="site-footer"><span>Universidad Santo Tomás · Seccional Tunja</span><a href={event.privacyUrl} target="_blank" rel="noreferrer">Autorización de datos personales <ArrowRight size={13} /></a></footer>}
+    {view !== 'welcome' && <button type="button" className="tommy-fab" onClick={() => setGuide({ title: 'Aquí estoy para ayudarte', text: 'Avanza por los niveles en orden. Si necesitas una pista, vuelve aquí cuando quieras.', image: tommyGuideImage })} aria-label="Pedir ayuda a Tommy"><img src={tommyGuideImage} alt="" /><span>Tommy</span></button>}
     {guide && <div className="guide-backdrop"><section className="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-title"><div className="guide-dialog-art"><img src={guide.image} alt="Tommy" /></div><div className="guide-dialog-copy"><span className="eyebrow">TOMMY TE CUENTA</span><h2 id="guide-title">{guide.title}</h2><p>{guide.text}</p><button className="button button-primary guide-continue" onClick={() => setGuide(null)}>{view === 'welcome' ? 'Entendido, empezar' : 'Entendido, continuar'} <ArrowRight size={17} /></button><small>El sonido y el movimiento del teléfono son opcionales y se pueden apagar.</small></div></section></div>}
   </div>;
 }
 
-function Welcome({ event, onRegistered, onFeedback }) {
+function Welcome({ event, onRegistered }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', school: '', city: '', consentPrivacy: false, consentMarketing: false });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -163,27 +163,19 @@ function Welcome({ event, onRegistered, onFeedback }) {
   }
 
   return <main className="welcome-layout page-wrap">
-    <section className="welcome-copy">
-      <p className="eyebrow"><Sparkles size={15} /> {event.edition}</p>
-      <h1>Tu futuro<br /><span>empieza explorando.</span></h1>
-      <p className="welcome-lede">{event.intro}</p>
-      <div className="welcome-highlights"><div><span className="highlight-number">02</span><span>programas<br />por descubrir</span></div><div><span className="highlight-number">06</span><span>misiones<br />interactivas</span></div><div><span className="highlight-number">03</span><span>charlas para<br />inspirarte</span></div></div>
-      <div className="program-peek-list">{event.programs.map((program) => <div className={`program-peek ${program.tone}`} key={program.id}><span className="peek-icon">{iconFor(program.icon, 20)}</span><span><strong>{program.name}</strong><small>{program.tagline}</small></span><ArrowRight size={17} /></div>)}</div>
-      <div className="event-flyer-card"><img src={event.flyerImage} alt={`Afiche del lanzamiento ${event.eventName}`} /><div><strong>{event.eventDate} · {event.eventTime}</strong><span>{event.eventVenue}</span></div></div>
-    </section>
     <section className="register-card">
-      <div className="card-kicker"><span className="step-marker">01</span><span>Tu pasaporte explorador</span></div>
-      <h2>Regístrate para<br />comenzar la misión</h2>
-      <p className="card-subtitle">Tu recorrido es individual y te tomará menos de un minuto iniciar.</p>
+      <div className="card-kicker"><span className="step-marker">01</span><span>{event.eventName} · REGISTRO DE ASPIRANTES</span></div>
+      <h1 className="registration-title">Regístrate para crear tu pasaporte</h1>
+      <p className="card-subtitle">Empieza tu experiencia individual y explora {event.programs.map((program) => program.name).join(' e ')}.</p>
       <form onSubmit={submit} className="registration-form" noValidate>
         <div className="form-row"><label>Nombre<input autoComplete="given-name" required minLength="2" maxLength="80" value={form.firstName} onChange={set('firstName')} placeholder="Tu nombre" aria-invalid={Boolean(error && !form.firstName)} /></label><label>Apellido<input autoComplete="family-name" required minLength="2" maxLength="100" value={form.lastName} onChange={set('lastName')} placeholder="Tu apellido" /></label></div>
         <label>Correo electrónico<input type="email" autoComplete="email" required maxLength="254" value={form.email} onChange={set('email')} placeholder="tunombre@correo.com" /></label>
         <div className="form-row"><label>Celular <span className="optional">Opcional</span><input type="tel" autoComplete="tel" maxLength="32" value={form.phone} onChange={set('phone')} placeholder="300 000 0000" /></label><label>Ciudad <span className="optional">Opcional</span><input maxLength="100" value={form.city} onChange={set('city')} placeholder="Tunja" /></label></div>
         <label>Colegio <span className="optional">Opcional</span><input maxLength="140" value={form.school} onChange={set('school')} placeholder="Nombre de tu colegio" /></label>
-        <label className="consent-row"><input type="checkbox" checked={form.consentPrivacy} onChange={set('consentPrivacy')} required /><span>Autorizo el tratamiento de mis datos para gestionar mi participación en esta experiencia, conforme a la <a href={event.privacyUrl} target="_blank" rel="noreferrer">Política de Protección de Datos</a>.</span></label>
+        <label className="consent-row"><input type="checkbox" checked={form.consentPrivacy} onChange={set('consentPrivacy')} required /><span>Autorizo el tratamiento de mis datos para gestionar mi participación en esta experiencia, conforme a la <a href={event.privacyUrl} target="_blank" rel="noreferrer">Autorización para el uso y almacenamiento de datos personales</a>.</span></label>
         <label className="consent-row"><input type="checkbox" checked={form.consentMarketing} onChange={set('consentMarketing')} /><span>Quiero recibir información sobre programas y procesos de admisión de la Santoto Tunja. (Opcional)</span></label>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="button button-primary button-wide" type="submit" disabled={busy}>{busy ? 'Tommy prepara tu pasaporte…' : <>Comenzar mi misión <ArrowRight size={17} /></>}</button>
+        <button className="button button-primary button-wide" type="submit" disabled={busy}>{busy ? 'Tommy prepara tu pasaporte…' : <>Crear mi pasaporte <ArrowRight size={17} /></>}</button>
       </form>
       <p className="secure-note"><LockKeyhole size={13} /> Tus datos se usan conforme a la política institucional.</p>
     </section>
@@ -198,12 +190,10 @@ function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, perc
   const totalActivities = totalChallenges + event.talks.length;
   const passportBadges = event.programs.flatMap((program) => program.challenges.map((challenge, index) => ({ key: `${program.id}:${challenge.id}`, title: challenge.title, programName: program.shortName, image: event.mascot.programImages[program.id] || event.mascot.welcomeImage, earned: progress.challenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id), serial: `${program.id === 'nutrition' ? 'N' : 'I'}-${index + 1}` }))).concat(event.talks.length ? [{ key: 'auditorium', title: 'Voz del futuro', programName: 'Auditorio', image: event.mascot.welcomeImage, earned: auditoriumEarned, serial: 'A-1' }] : []);
   return <main className="page-wrap journey-page">
-    <section className="journey-hero"><div className="journey-copy"><p className="eyebrow"><Sparkles size={15} /> {event.eventName} · PASAPORTE EXPLORADOR</p><h1>¡Hola, {user.first_name}!<br /><span>Tommy te acompaña.</span></h1><p>Sigue el mapa, completa misiones individuales y colecciona insignias.</p></div><div className="progress-orbit" style={{ '--progress': `${percent}%` }}><div className="orbit-inner"><strong>{percent}%</strong><span>de tu misión</span></div><Sparkles className="orbit-star" size={17} /></div></section>
     <nav className="journey-tabs" aria-label="Secciones de tu experiencia">
       {[['retos', 'Mis retos', Sparkles], ['pasaporte', 'Mi pasaporte', Award], ['insignias', 'Mis insignias', Trophy]].map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17} />{label}{id === 'insignias' && <span className="tab-count">{progress.badges.length}/{totalBadges}</span>}</button>)}
     </nav>
     {tab === 'retos' && <>
-    <div className="passport-strip"><div className="passport-stamp"><Sparkles size={17} /></div><div className="passport-copy"><strong>Pasaporte de {user.first_name}</strong><span>{progress.badges.length} de {totalBadges} insignias · {progress.coins} Tommy Coins</span></div><div className="passport-progress"><span style={{ width: `${percent}%` }} /></div><div className="coin-counter passport-coins"><Coins size={18} /><strong>{progress.coins}</strong><span>Tommy Coins</span></div></div>
     <div className="map-heading"><div><p className="eyebrow">TU MAPA DE AVENTURA</p><h2>Una misión, paso a paso</h2></div><span className="count-label">{progress.challenges.length} de {totalChallenges} niveles</span></div>
     <section className="adventure-map">
       {event.programs.map((program, programIndex) => <ProgramPath key={program.id} program={program} programIndex={programIndex} progress={progress} onOpen={() => onOpenProgram(program.id)} />)}

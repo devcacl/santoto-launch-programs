@@ -91,7 +91,9 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 - Tommy guía desde un botón flotante en la esquina inferior derecha. La bienvenida, el inicio de cada nivel, las instrucciones del auditorio y las pistas se presentan en una pantalla que requiere confirmación antes de continuar.
 - Cada uno de los seis niveles desbloquea una insignia ilustrada con el modelo de Tommy correspondiente. Las insignias se conservan en el pasaporte asociado al registro y se pueden descargar como PNG al dispositivo.
 - La experiencia autenticada tiene navegación horizontal entre **Mis retos**, **Mi pasaporte** y **Mis insignias**. El pasaporte se muestra desbloqueado desde el inicio; Tommy lo presenta y la descarga de la tarjeta se habilita al terminar las seis misiones y las tres charlas.
-- La portada y el auditorio muestran la identidad EVOLUCIONA-T, el afiche, la fecha, el horario y el lugar configurados en `server/src/config/event.json`.
+- La cabecera única combina el logo institucional, EVOLUCIONA-T, controles de sonido/vibración, Tommy Coins y el saludo del aspirante. En el registro, el formulario aparece inmediatamente debajo de la cabecera.
+- La identidad visual toma como referencia los colores del evento; el afiche se usó solo como referencia y no aparece en la página. El logo proviene de los [recursos gráficos institucionales](https://santototunja.edu.co/documentos-institucionales).
+- La fecha, el horario, el lugar y el enlace de autorización de datos se configuran en `server/src/config/event.json`.
 - El movimiento de las insignias usa la orientación del teléfono cuando el navegador lo permite. iOS puede pedir autorización; la experiencia se mantiene usable si el sensor no está disponible.
 - Los requisitos de respuestas correctas se validan en el servidor. La ruta pública de evento no entrega las reglas ni las soluciones.
 
