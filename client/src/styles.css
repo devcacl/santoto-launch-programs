@@ -88,3 +88,10 @@
 .journey-tabs{position:fixed;top:auto;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;transform:translateX(-50%);display:flex;flex-direction:row;align-items:stretch;width:min(640px,calc(100% - 32px));height:auto;max-height:68px;margin:0;padding:5px;gap:4px}
 .journey-tabs button{height:50px;min-height:50px;max-height:58px;flex:1 1 0;align-self:stretch}
 @media(max-width:760px){.journey-page{padding-bottom:calc(104px + env(safe-area-inset-bottom))}.journey-tabs{top:auto;bottom:calc(10px + env(safe-area-inset-bottom));width:calc(100% - 20px);height:auto;max-height:62px}.journey-tabs button{height:50px;min-height:46px;max-height:52px}}
+
+/* Navegación del recorrido restaurada bajo el header. */
+.topbar{min-height:82px}
+.journey-page{padding-bottom:24px}
+.journey-page .journey-tabs{position:static;top:auto;right:auto;bottom:auto;left:auto;transform:none;width:100%;height:auto;max-height:none;margin:7px 0 20px;padding:8px;z-index:15}
+.journey-page .journey-tabs button{height:auto;min-height:45px;max-height:none;align-self:auto;flex:1 1 0}
+@media(max-width:760px){.topbar{min-height:70px}.journey-page{padding-bottom:10px}.journey-page .journey-tabs{position:static;top:auto;bottom:auto;width:100%;height:auto;max-height:none;margin:12px 0 16px;padding:5px}.journey-page .journey-tabs button{height:auto;min-height:46px;max-height:none}.tommy-fab{bottom:12px}}

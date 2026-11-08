@@ -210,6 +210,9 @@ function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, perc
   const totalActivities = totalChallenges + event.talks.length;
   const passportBadges = event.programs.flatMap((program) => program.challenges.map((challenge, index) => ({ key: `${program.id}:${challenge.id}`, title: challenge.title, programName: program.shortName, image: event.mascot.programImages[program.id] || event.mascot.welcomeImage, earned: progress.challenges.some((row) => row.program_id === program.id && row.challenge_id === challenge.id), serial: `${program.id === 'nutrition' ? 'N' : 'I'}-${index + 1}` }))).concat(event.talks.length ? [{ key: 'auditorium', title: 'Voz del futuro', programName: 'Auditorio', image: event.mascot.welcomeImage, earned: auditoriumEarned, serial: 'A-1' }] : []);
   return <main className="page-wrap journey-page">
+    <nav className="journey-tabs" aria-label="Secciones de tu experiencia">
+      {[['retos', 'Mis retos', MapIcon], ['pasaporte', 'Mi pasaporte', Award], ['insignias', 'Mis insignias', Trophy]].map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17} />{label}{id === 'insignias' && <span className="tab-count">{progress.badges.length}/{totalBadges}</span>}</button>)}
+    </nav>
     {tab === 'retos' && <>
     <div className="map-heading"><div><p className="map-greeting">¡Hola, {user.first_name}!</p><p className="eyebrow">TU MAPA DE AVENTURA</p><h2>Una misión, paso a paso</h2></div><span className="count-label">{progress.challenges.length} de {totalChallenges} niveles</span></div>
     <section className="adventure-map">
@@ -221,9 +224,6 @@ function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, perc
     </>}
     {tab === 'pasaporte' && <PassportCard event={event} user={user} progress={progress} percent={percent} finished={finished} totalActivities={totalActivities} />}
     {tab === 'insignias' && <section className="collection-card side-card"><div className="section-heading compact"><div><p className="eyebrow">TU COLECCIÓN</p><h2>Insignias de Tommy</h2></div><Trophy size={20} /></div><p className="collection-intro">Cada nivel completado desbloquea una insignia que puedes guardar como imagen en tu celular.</p><button type="button" className={`motion-toggle ${motionEnabled ? 'active' : ''}`} onClick={onEnableMotion}><Vibrate size={14} /> {motionEnabled ? 'Movimiento activado' : 'Activar movimiento del teléfono'}</button><div className="badge-gallery">{passportBadges.map((badge) => <MissionBadge key={badge.key} {...badge} tilt={deviceTilt} />)}</div></section>}
-    <nav className="journey-tabs" aria-label="Secciones de tu experiencia">
-      {[['retos', 'Mis retos', MapIcon], ['pasaporte', 'Mi pasaporte', Award], ['insignias', 'Mis insignias', Trophy]].map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17} />{label}{id === 'insignias' && <span className="tab-count">{progress.badges.length}/{totalBadges}</span>}</button>)}
-    </nav>
   </main>;
 }
 
