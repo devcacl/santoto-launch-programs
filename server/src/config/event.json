@@ -61,6 +61,37 @@
           ],
           "rules": { "expectedOrder": ["wash", "prepare", "cook", "store"] },
           "feedback": "¡Ruta segura! La higiene y la manipulación cuidadosa protegen los alimentos."
+        },
+        {
+          "id": "nutrient-match", "title": "Conecta cada pista", "type": "match", "duration": "3 min",
+          "prompt": "Une cada necesidad cotidiana con una acción general de bienestar. Piensa en diversidad y contexto, no en dietas únicas.",
+          "pairs": [
+            { "id": "energy", "prompt": "Energía para una jornada activa" },
+            { "id": "variety", "prompt": "Más variedad de frutas y verduras" },
+            { "id": "hydration", "prompt": "Acompañar un día caluroso" },
+            { "id": "fiber", "prompt": "Incluir alimentos integrales" },
+            { "id": "context", "prompt": "Planear con la familia" }
+          ],
+          "options": [
+            { "id": "grains", "label": "Cereales y tubérculos" },
+            { "id": "produce", "label": "Elegir productos de distintos colores" },
+            { "id": "water", "label": "Tener agua disponible y escuchar la sed" },
+            { "id": "whole", "label": "Preferir opciones integrales cuando estén disponibles" },
+            { "id": "family", "label": "Considerar gustos, cultura y presupuesto" }
+          ],
+          "rules": { "expectedPairs": { "energy": "grains", "variety": "produce", "hydration": "water", "fiber": "whole", "context": "family" } },
+          "feedback": "¡Conexiones completas! En nutrición se consideran necesidades, contexto y decisiones informadas."
+        },
+        {
+          "id": "balanced-snack", "title": "Diseña una pausa equilibrada", "type": "allocation", "duration": "3 min", "totalTokens": 12, "maxTokensPerBucket": 6,
+          "prompt": "Una jornada escolar tendrá una pausa activa. Distribuye 12 fichas entre energía, alimentos frescos y proteína para crear una propuesta variada.",
+          "buckets": [
+            { "id": "energy", "label": "Energía para continuar", "emoji": "🌾" },
+            { "id": "fresh", "label": "Frutas y verduras", "emoji": "🍎" },
+            { "id": "protein", "label": "Opciones con proteína", "emoji": "🥚" }
+          ],
+          "rules": { "total": 12, "minByBucket": { "energy": 3, "fresh": 4, "protein": 2 }, "maxPerBucket": 6 },
+          "feedback": "¡Pausa planeada! Repartiste los recursos con variedad y propósito."
         }
       ]
     },
@@ -108,6 +139,39 @@
           },
           "rules": { "headline": "sales-up|returns-down" },
           "feedback": "¡Titular honesto! Comunicar datos también es decir solo lo que la evidencia respalda."
+        },
+        {
+          "id": "metric-match", "title": "Empareja el dato con la pregunta", "type": "match", "duration": "3 min",
+          "prompt": "Conecta cada indicador con la pregunta que mejor ayuda a investigar una oportunidad.",
+          "pairs": [
+            { "id": "conversion", "prompt": "Tasa de conversión" },
+            { "id": "abandonment", "prompt": "Abandono del proceso" },
+            { "id": "retention", "prompt": "Retención de usuarios" },
+            { "id": "basket", "prompt": "Valor promedio de compra" },
+            { "id": "service", "prompt": "Tiempo de respuesta" }
+          ],
+          "options": [
+            { "id": "desired-action", "label": "¿Qué proporción completa la acción esperada?" },
+            { "id": "drop-off", "label": "¿En qué paso se detienen las personas?" },
+            { "id": "returning", "label": "¿Cuántas personas vuelven a usar el servicio?" },
+            { "id": "amount", "label": "¿Cuánto representa cada compra en promedio?" },
+            { "id": "speed", "label": "¿Cuánto tarda el equipo en atender una solicitud?" }
+          ],
+          "rules": { "expectedPairs": { "conversion": "desired-action", "abandonment": "drop-off", "retention": "returning", "basket": "amount", "service": "speed" } },
+          "feedback": "¡Indicadores conectados! Cada métrica cobra sentido cuando responde una pregunta útil."
+        },
+        {
+          "id": "insight-sequence", "title": "Del dato a la decisión", "type": "sequence", "duration": "3 min",
+          "prompt": "Ordena las etapas para convertir datos dispersos en una recomendación que el equipo pueda usar.",
+          "items": [
+            { "id": "communicate", "label": "Comunicar el hallazgo y su recomendación", "emoji": "🗣️" },
+            { "id": "ask", "label": "Definir la pregunta que se quiere responder", "emoji": "🎯" },
+            { "id": "clean", "label": "Revisar calidad y preparar los datos", "emoji": "🧹" },
+            { "id": "analyze", "label": "Explorar patrones y contrastar hipótesis", "emoji": "📊" },
+            { "id": "collect", "label": "Reunir fuentes relevantes para la pregunta", "emoji": "🗂️" }
+          ],
+          "rules": { "expectedOrder": ["ask", "collect", "clean", "analyze", "communicate"] },
+          "feedback": "¡Recorrido analítico listo! Una decisión sólida parte de una buena pregunta y datos confiables."
         }
       ]
     }

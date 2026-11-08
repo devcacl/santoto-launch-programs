@@ -111,6 +111,17 @@ function validChallengeAnswer(challenge, rawAnswer) {
     const parsed = z.array(z.string().max(60)).length(items.length).safeParse(rawAnswer);
     return parsed.success && parsed.data.every((id, index) => id === rules.expectedOrder[index]);
   }
+  if (challenge.type === 'match') {
+    const expected = rules.expectedPairs || {};
+    const parsed = z.record(z.string().max(60), z.string().max(60)).safeParse(rawAnswer);
+    const leftIds = challenge.pairs.map((pair) => pair.id);
+    const rightIds = new Set(challenge.options.map((option) => option.id));
+    if (!parsed.success || Object.keys(parsed.data).length !== leftIds.length || leftIds.some((id) => !(id in parsed.data))) return false;
+    const matches = Object.values(parsed.data);
+    return new Set(matches).size === matches.length
+      && matches.every((id) => rightIds.has(id))
+      && leftIds.every((id) => parsed.data[id] === expected[id]);
+  }
   if (challenge.type === 'detective') {
     return typeof rawAnswer === 'string' && items.some((item) => item.id === rawAnswer) && rawAnswer === rules.answerId;
   }
