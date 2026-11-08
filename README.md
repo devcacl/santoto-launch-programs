@@ -24,7 +24,7 @@ Experiencia web gamificada para el lanzamiento de Nutrición y Dietética e Inte
    cd C:\Users\leonc\OneDrive\Desktop\apps
    ```
 
-3. Si es la primera instalación, crea el archivo local `.env` copiando `.env.example`, genera valores propios para `SESSION_SECRET` y `ADMIN_API_KEY`, y no compartas ese archivo. El `.env` local ya existente conserva sus valores y no se reemplaza al actualizar el repositorio.
+3. Si es la primera instalación, crea el archivo local `.env` copiando `.env.example`, genera un valor propio para `SESSION_SECRET` y configura `ADMIN_USERS_JSON` con las cuentas y hashes bcrypt de desarrollo. No compartas el archivo. El `.env` local ya existente conserva sus valores y no se reemplaza al actualizar el repositorio.
 4. Instala las dependencias una sola vez (o después de actualizar los paquetes):
 
    ```cmd
@@ -58,7 +58,9 @@ Para detener la web y la API, pulsa `Ctrl+C` en la segunda terminal. Para detene
 
 ### Acceso local al panel administrativo
 
-La clave de prueba local configurada en el `.env` de desarrollo es `SantotoAdmin-Local-2026-EVOLUCIONA-T-Only`. Escríbela en el formulario de [http://localhost:5173/admin](http://localhost:5173/admin). Solo sirve para el entorno local: nunca la uses en producción ni la guardes en Git. En producción, TI debe configurar una `ADMIN_API_KEY` diferente, aleatoria y privada de al menos 32 caracteres.
+El panel usa cuentas individuales definidas en `ADMIN_USERS_JSON`, con roles `admin`, `admissions` y `analyst`. Las contraseñas se guardan como hashes bcrypt cost 12; el navegador recibe una cookie `HttpOnly`, `SameSite=Strict`, con expiración a las 8 horas. En el `.env` local hay cuentas de demostración con esos tres roles; sus claves son solo para esta máquina. TI debe crear cuentas institucionales, hashes únicos y secretos fuera del repositorio, y retirar las cuentas de prueba antes de desplegar. `admin` y `admissions` pueden exportar CSV; `analyst` tiene lectura del panel.
+
+Para generar de forma segura un registro bcrypt para una cuenta institucional, ejecuta `npm --prefix server run admin:hash`, escribe el correo, el rol y la contraseña cuando se solicite. La contraseña se pide por entrada interactiva y no se incluye en el historial del comando. Agrega la salida JSON al secreto `ADMIN_USERS_JSON` del proveedor; no la subas a Git.
 
 La API inicia en `http://localhost:3001`. `GET /api/health` es el chequeo de disponibilidad. Las tablas se crean al iniciar la API.
 
@@ -77,7 +79,8 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 - Seis retos con validación de servidor y prevención de duplicados.
 - Registro de asistencia individual a las charlas con código del evento.
 - Selección final del programa de interés.
-- Exportación CSV bajo `GET /api/admin/leads.csv` mediante cabecera `x-admin-key`.
+- Exportación CSV bajo `GET /api/admin/leads.csv` tras validar el rol de la sesión administrativa.
+- Panel con inicio de sesión individual, roles y sesión en cookie `HttpOnly`; las exportaciones están reservadas a roles autorizados.
 
 ## Pasaporte y controles de experiencia
 
@@ -87,6 +90,8 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 - Los sonidos y la vibración son controles opcionales en la barra superior. La vibración depende del dispositivo y navegador.
 - Tommy guía desde un botón flotante en la esquina inferior derecha. La bienvenida, el inicio de cada nivel, las instrucciones del auditorio y las pistas se presentan en una pantalla que requiere confirmación antes de continuar.
 - Cada uno de los seis niveles desbloquea una insignia ilustrada con el modelo de Tommy correspondiente. Las insignias se conservan en el pasaporte asociado al registro y se pueden descargar como PNG al dispositivo.
+- La experiencia autenticada tiene navegación horizontal entre **Mis retos**, **Mi pasaporte** y **Mis insignias**. El pasaporte se muestra desbloqueado desde el inicio; Tommy lo presenta y la descarga de la tarjeta se habilita al terminar las seis misiones y las tres charlas.
+- La portada y el auditorio muestran la identidad EVOLUCIONA-T, el afiche, la fecha, el horario y el lugar configurados en `server/src/config/event.json`.
 - El movimiento de las insignias usa la orientación del teléfono cuando el navegador lo permite. iOS puede pedir autorización; la experiencia se mantiene usable si el sensor no está disponible.
 - Los requisitos de respuestas correctas se validan en el servidor. La ruta pública de evento no entrega las reglas ni las soluciones.
 
@@ -126,10 +131,29 @@ El correo debe ser único por registro y la autorización de privacidad es oblig
 
 Cada registro local agrega información de prueba a MariaDB. Usa un correo diferente al probar otro registro. Las preferencias de contacto y la preferencia final quedan almacenadas como datos de evento.
 
+## Prueba de carga de recorrido completo
+
+`scripts/k6-event-flow.js` simula asistentes que crean lead, completan los seis retos, registran las tres charlas y guardan su preferencia. Ejecútalo solo contra staging o una base descartable; crea registros reales en la base configurada. `VUS=300` y `ITERATIONS_PER_VU=1` generan 300 usuarios virtuales concurrentes (no son 300 celulares físicos). Ejemplo para 300 asistentes:
+
+```cmd
+set BASE_URL=https://staging.example.edu
+set VUS=300
+set ITERATIONS_PER_VU=1
+set LOAD_TEST_PREFIX=evoluciona-load-2026
+set TALK_1_CODE=codigo-staging-charla-1
+set TALK_2_CODE=codigo-staging-charla-2
+set TALK_3_CODE=codigo-staging-charla-3
+k6 run scripts/k6-event-flow.js
+```
+
+Usa códigos de staging privados y elimina únicamente los leads con el prefijo de la corrida cuando termines. No ejecutes esta prueba contra producción. Los umbrales configurados son menos de 1% de errores y p95 menor de 3 s; una corrida local no certifica el proveedor ni 300 dispositivos físicos.
+
+Validación local del 8 de noviembre de 2026: MariaDB 11.4, 300 VUs, 3.300 solicitudes de recorrido, 0 errores y p95 de 1,06 s. Los 300 leads de carga se eliminaron después. Esta medición cubre una sola máquina, no la infraestructura de la Universidad ni teléfonos físicos.
+
 ## Antes de producción
 
 - Desplegar la base de datos y API dentro de una cuenta/entorno aprobado por TI; exigir TLS, `DB_SSL=true`, validación de certificado y `COOKIE_SECURE=true`.
-- Configurar `APP_ORIGIN`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL`, `SESSION_SECRET`, `ADMIN_API_KEY` y `AUDITORIUM_CHECKIN_CODES` como secretos/variables del proveedor. Usa secretos distintos, aleatorios y de 32+ caracteres para sesión y administración. No usar valores del ejemplo.
+- Configurar `APP_ORIGIN`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL`, `SESSION_SECRET`, `ADMIN_USERS_JSON` y `AUDITORIUM_CHECKIN_CODES` como secretos/variables del proveedor. Usa secretos aleatorios y cuentas institucionales con contraseñas únicas; no uses valores de desarrollo.
 - Reemplazar el limitador de solicitudes en memoria por un store compartido si la API corre en varias réplicas.
 - Configurar política de backups, retención/borrado, monitoreo, logs sin datos de leads y procedimiento de incidentes con TI.
 - Revisar el aviso de privacidad, autorización aplicable a menores, y textos comerciales con Jurídica/Protección de Datos.

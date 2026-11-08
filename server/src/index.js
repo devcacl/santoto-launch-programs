@@ -5,25 +5,33 @@ import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { pool, query, initializeDatabase } from './db.js';
-import { requireAdmin, signSession, verifySession } from './security.js';
+import { requireAdmin, signAdminSession, signSession, verifySession } from './security.js';
 
 const app = express();
 const config = JSON.parse(await readFile(new URL('./config/event.json', import.meta.url), 'utf8'));
 const port = Number(process.env.PORT || 3001);
 const cookieName = 'santoto_session';
+const adminCookieName = 'santoto_admin_session';
 const isProduction = process.env.NODE_ENV === 'production';
 
 if (isProduction) {
-  const required = ['APP_ORIGIN', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'SESSION_SECRET', 'ADMIN_API_KEY'];
-  const missing = required.filter((name) => !process.env[name] || process.env[name].length < (['SESSION_SECRET', 'ADMIN_API_KEY', 'DB_PASSWORD'].includes(name) ? 32 : 1));
+  const required = ['APP_ORIGIN', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'SESSION_SECRET', 'ADMIN_USERS_JSON'];
+  const missing = required.filter((name) => !process.env[name] || process.env[name].length < (['SESSION_SECRET', 'DB_PASSWORD'].includes(name) ? 32 : 1));
   if (missing.length) throw new Error(`Missing or weak production configuration: ${missing.join(', ')}`);
   if (process.env.COOKIE_SECURE !== 'true' || process.env.DB_SSL !== 'true') throw new Error('Production requires COOKIE_SECURE=true and DB_SSL=true');
   if (/localhost|127\.0\.0\.1/i.test(process.env.APP_ORIGIN)) throw new Error('APP_ORIGIN must use the approved HTTPS origin in production');
   let productionOrigin;
   try { productionOrigin = new URL(process.env.APP_ORIGIN); } catch { throw new Error('APP_ORIGIN must be a valid HTTPS origin'); }
   if (productionOrigin.protocol !== 'https:') throw new Error('APP_ORIGIN must use HTTPS in production');
+  try {
+    const accounts = JSON.parse(process.env.ADMIN_USERS_JSON);
+    const invalidAccount = (account) => !account || !/^\S+@\S+\.\S+$/.test(account.email) || !/^\$2[aby]\$12\$[./A-Za-z0-9]{53}$/.test(account.passwordHash) || !['admin', 'admissions', 'analyst'].includes(account.role);
+    const normalizedEmails = Array.isArray(accounts) ? accounts.map((account) => account?.email?.toLowerCase()) : [];
+    if (!Array.isArray(accounts) || !accounts.length || accounts.some(invalidAccount) || new Set(normalizedEmails).size !== accounts.length) throw new Error();
+  } catch { throw new Error('ADMIN_USERS_JSON must contain named users with bcrypt cost-12 hashes and approved roles'); }
   try {
     const checkinCodes = JSON.parse(process.env.AUDITORIUM_CHECKIN_CODES || '{}');
     if (config.talks.some((talk) => typeof checkinCodes[talk.id] !== 'string' || checkinCodes[talk.id].length < 16 || checkinCodes[talk.id].startsWith('DEMO-'))) throw new Error();
@@ -38,6 +46,11 @@ app.use(cookieParser());
 app.use('/api', rateLimit({ windowMs: 60_000, limit: Number(process.env.API_RATE_LIMIT_PER_IP || 5000), standardHeaders: 'draft-7', legacyHeaders: false }));
 // Event attendees commonly share one campus NAT IP; keep this high enough for enrollment day.
 app.use('/api/auth/register', rateLimit({ windowMs: 15 * 60_000, limit: Number(process.env.REGISTRATION_RATE_LIMIT_PER_IP || 500), standardHeaders: 'draft-7', legacyHeaders: false }));
+app.use('/api/admin/auth/login', rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }));
+
+const adminLoginSchema = z.object({ email: z.string().trim().email().max(254), password: z.string().min(12).max(200) });
+function isTrustedAdminOrigin(req) { return req.get('origin') === (process.env.APP_ORIGIN || 'http://localhost:5173'); }
+function adminCookieOptions() { return { httpOnly: true, secure: process.env.COOKIE_SECURE === 'true' || isProduction, sameSite: 'strict', maxAge: 8 * 60 * 60 * 1000, path: '/api/admin' }; }
 
 const registrationSchema = z.object({
   firstName: z.string().trim().min(2).max(80).regex(/^[\p{L}\p{M}][\p{L}\p{M}\s'.-]+$/u),
@@ -154,6 +167,34 @@ app.get('/api/me', requireParticipant, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+app.post('/api/admin/auth/login', async (req, res) => {
+  if (!isTrustedAdminOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
+  const parsed = adminLoginSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Revisa el correo y la contraseña.' });
+  let accounts;
+  try { accounts = JSON.parse(process.env.ADMIN_USERS_JSON || '[]'); }
+  catch { return res.status(503).json({ error: 'El acceso administrativo no está configurado.' }); }
+  const email = parsed.data.email.toLowerCase();
+  const account = Array.isArray(accounts) ? accounts.find((item) => item.email?.toLowerCase() === email) : null;
+  const dummyHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6FzM5J2qPz3r6J3W8S1MxdpWHaY9K';
+  const passwordMatches = await bcrypt.compare(parsed.data.password, account?.passwordHash || dummyHash);
+  if (!account || !passwordMatches || !['admin', 'admissions', 'analyst'].includes(account.role)) return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
+  res.cookie(adminCookieName, signAdminSession(email, account.role), adminCookieOptions());
+  res.set('Cache-Control', 'no-store');
+  res.json({ user: { email, role: account.role } });
+});
+
+app.get('/api/admin/auth/me', requireAdmin(), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ user: req.admin });
+});
+
+app.post('/api/admin/auth/logout', requireAdmin(), (req, res) => {
+  if (!isTrustedAdminOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
+  res.clearCookie(adminCookieName, adminCookieOptions());
+  res.status(204).end();
+});
+
 app.post('/api/challenges/:programId/:challengeId/complete', requireParticipant, async (req, res, next) => {
   const { programId, challengeId } = req.params;
   const programIndex = config.programs.findIndex((program) => program.id === programId);
@@ -206,7 +247,7 @@ app.patch('/api/me/preference', requireParticipant, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get('/api/admin/overview', requireAdmin, async (_req, res, next) => {
+app.get('/api/admin/overview', requireAdmin(), async (_req, res, next) => {
   try {
     const [totals, preferences, activities] = await Promise.all([
       query(`SELECT COUNT(*) AS leads,
@@ -224,7 +265,7 @@ app.get('/api/admin/overview', requireAdmin, async (_req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get('/api/admin/leads', requireAdmin, async (req, res, next) => {
+app.get('/api/admin/leads', requireAdmin(), async (req, res, next) => {
   const page = Math.min(100_000, Math.max(1, Number.parseInt(req.query.page, 10) || 1));
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 25));
   const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : '';
@@ -244,7 +285,7 @@ app.get('/api/admin/leads', requireAdmin, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get('/api/admin/leads.csv', requireAdmin, async (_req, res, next) => {
+app.get('/api/admin/leads.csv', requireAdmin(['admin', 'admissions']), async (_req, res, next) => {
   try {
     const { rows } = await query(`SELECT p.id, p.first_name, p.last_name, p.email, p.phone, p.school, p.city,
       p.preferred_program, p.consent_privacy, p.consent_marketing, p.created_at,

@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch-path=src src/bootstrap.js",
-    "start": "node src/bootstrap.js"
+    "start": "node src/bootstrap.js",
+    "admin:hash": "node scripts/create-admin-hash.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
