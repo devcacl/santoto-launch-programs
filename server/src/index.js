@@ -178,6 +178,17 @@ app.get('/api/me', requireParticipant, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+app.get('/api/session', async (req, res, next) => {
+  const id = participantId(req);
+  res.set('Cache-Control', 'no-store');
+  if (!id) return res.json({ participant: null });
+  try {
+    const { rows } = await query('SELECT id, first_name, last_name, preferred_program FROM participants WHERE id=$1', [id]);
+    if (!rows.length) return res.json({ participant: null });
+    res.json({ participant: rows[0], progress: await getProgress(id) });
+  } catch (error) { next(error); }
+});
+
 app.post('/api/admin/auth/login', async (req, res) => {
   if (!isTrustedAdminOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
   const parsed = adminLoginSchema.safeParse(req.body);

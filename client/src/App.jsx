@@ -94,7 +94,7 @@ export default function App() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([request('/event'), request('/me').catch(() => null)]).then(([data, session]) => {
+    Promise.all([request('/event'), request('/session')]).then(([data, session]) => {
       if (!alive) return;
       setEvent(data.event);
       if (session?.participant) {
@@ -234,7 +234,7 @@ function Journey({ event, user, progress, earnedPrograms, auditoriumEarned, perc
     {finished && <section className="finish-banner"><div><p className="eyebrow">¡PASAPORTE COMPLETO!</p><h2>Tommy tiene una última pregunta</h2><p>¿Cuál programa te gustaría conocer mejor?</p></div><button className="button button-primary" onClick={() => setView('finish')}>Elegir programa <ArrowRight size={17} /></button></section>}
     </>}
     {tab === 'pasaporte' && <PassportCard event={event} user={user} progress={progress} percent={percent} finished={finished} totalActivities={totalActivities} />}
-    {tab === 'insignias' && <section className="collection-card side-card"><div className="section-heading compact"><div><p className="eyebrow">TU COLECCIÓN</p><h2>Insignias de Tommy</h2></div><Trophy size={20} /></div><p className="collection-intro">Cada nivel completado desbloquea una insignia que puedes guardar como imagen en tu celular.</p><button type="button" className={`motion-toggle ${motionEnabled ? 'active' : ''}`} onClick={onEnableMotion}><Vibrate size={14} /> {motionEnabled ? 'Movimiento activado' : 'Activar movimiento del teléfono'}</button><div className="badge-gallery">{passportBadges.map((badge) => <MissionBadge key={badge.key} {...badge} tilt={deviceTilt} />)}</div></section>}
+    {tab === 'insignias' && <section className="collection-card side-card"><div className="section-heading compact"><div><p className="eyebrow">TU COLECCIÓN</p><h2>Insignias de Tommy</h2></div><Trophy size={20} /></div><p className="collection-intro">Cada nivel completado desbloquea una insignia que puedes guardar como imagen en tu celular.</p><button type="button" className={`motion-toggle ${motionEnabled ? 'active' : ''}`} onClick={onEnableMotion}><Vibrate size={14} /> {motionEnabled ? 'Movimiento activado' : 'Activar movimiento del teléfono'}</button><div className="badge-gallery">{passportBadges.map(({ key, ...badge }) => <MissionBadge key={key} {...badge} tilt={deviceTilt} />)}</div></section>}
   </main>;
 }
 
