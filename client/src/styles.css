@@ -82,7 +82,9 @@
 .match-card span{font-size:9px;font-weight:700;line-height:1.4}
 .match-card small{color:#8a96a4;font-size:7px;line-height:1.3}
 .match-card.selected{border-color:#6354c2;background:#f4f2ff;transform:translateY(-1px)}
-.match-card.matched{border-color:#a8ddca;background:#f0faf5}
+.match-card.connected{border-color:#9daed5;background:#f3f6ff;color:#2c426b}
+.match-card.incorrect{border-color:#df5966;background:#fff0f1;color:#992936;box-shadow:0 0 0 1px #df596626}
+.match-card.incorrect small{color:#ad3945}
 .match-card:disabled{opacity:.7;cursor:not-allowed}
 @media(max-width:760px){
   .map-greeting{font-size:14px;margin-bottom:4px}
