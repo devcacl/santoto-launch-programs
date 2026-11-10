@@ -137,6 +137,12 @@ El correo debe ser único por registro y la autorización de privacidad es oblig
 
 Cada registro local agrega información de prueba a MariaDB. Usa un correo diferente al probar otro registro. Las preferencias de contacto y la preferencia final quedan almacenadas como datos de evento.
 
+## Verificación local y CI
+
+Desde la raíz del repositorio, ejecuta `npm test` para validar la configuración del evento y las respuestas correctas e incorrectas de los diez minijuegos. Ejecuta `npm run check` para correr esas pruebas y compilar el frontend de producción. GitHub Actions repite las pruebas, la compilación y la auditoría de dependencias del servidor en cada push a `main` y en cada pull request.
+
+Estas comprobaciones no sustituyen la validación del despliegue. Para probar la API y MariaDB localmente, inicia la base de datos con Docker, levanta la app con `npm run dev` y verifica `http://localhost:3001/api/health`; debe responder con `status: ok` y `database: ok`. Las pruebas de carga crean registros de prueba, por lo que se ejecutan únicamente contra una base local descartable o el staging autorizado, nunca contra producción.
+
 ## Prueba de carga de recorrido completo
 
 `scripts/k6-event-flow.js` simula asistentes que crean lead, completan los diez retos, registran las tres charlas y guardan su preferencia (15 solicitudes API por recorrido, 4.500 solicitudes con 300 VUs y una iteración cada uno). Ejecútalo solo contra staging o una base descartable; crea registros reales en la base configurada. `VUS=300` y `ITERATIONS_PER_VU=1` generan 300 usuarios virtuales concurrentes (no son 300 celulares físicos). Ejemplo para 300 asistentes:
@@ -154,7 +160,7 @@ k6 run scripts/k6-event-flow.js
 
 Usa códigos de staging privados y elimina únicamente los leads con el prefijo de la corrida cuando termines. No ejecutes esta prueba contra producción. Los umbrales configurados son menos de 1% de errores y p95 menor de 3 s; una corrida local no certifica el proveedor ni 300 dispositivos físicos.
 
-Validación local del 8 de noviembre de 2026: MariaDB 11.4, 300 VUs, 3.300 solicitudes, 0 errores y p95 de 1,06 s. Esa medición corresponde a la versión anterior, con seis retos; los 300 leads de carga se eliminaron después. No certifica la versión actual de diez retos, la infraestructura de la Universidad ni teléfonos físicos. Repite la corrida actualizada antes de producción.
+Validación local del 9 de noviembre de 2026: recorrido completo actual con diez retos, MariaDB 11.4 aislada y descartable, 300 VUs, 4.500 solicitudes, 100 % de checks exitosos, 0 errores HTTP y p95 de 1,17 s. Se eliminó la base temporal al terminar. Esta prueba mide el código y equipo local; no certifica la infraestructura de la Universidad, teléfonos físicos, ni el comportamiento de staging/producción. William debe repetirla en staging con la configuración acordada antes del evento.
 
 ## Antes de producción
 

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch-path=src src/bootstrap.js",
     "start": "node src/bootstrap.js",
-    "admin:hash": "node scripts/create-admin-hash.js"
+    "admin:hash": "node scripts/create-admin-hash.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
