@@ -177,9 +177,7 @@
     }
   ],
   "talks": [
-    { "id": "talk-1", "label": "Charla 1", "title": "Liderazgo y evolución institucional", "speaker": "Fray Oscar Eduardo Guayán Perdono O.P. · Rector" },
-    { "id": "talk-2", "label": "Charla 2", "title": "Formación académica para transformar", "speaker": "Fray Wilmar Yesid Ruiz Cortés O.P. · Vicerrector académico" },
-    { "id": "talk-3", "label": "Charla 3", "title": "Nutrición, datos y nuevas oportunidades", "speaker": "Luis Rafael Hutchison · Nutrición y Dietética; Esperanza Díaz Casallas · Inteligencia de Negocios" }
+    { "id": "program-leaders", "label": "Charla de programas", "title": "Nutrición y Dietética e Inteligencia de Negocios: dos caminos para transformar", "speaker": "Luis Rafael Hutchison · Líder de Nutrición y Dietética; Esperanza Díaz Casallas · Líder de Inteligencia de Negocios" }
   ],
   "otherPrograms": [
     "Administración de Empresas", "Arquitectura", "Contaduría Pública", "Derecho", "Ingeniería Civil",

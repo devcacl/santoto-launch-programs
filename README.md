@@ -90,7 +90,7 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 - Los sonidos y la vibración son controles opcionales en la barra superior. La vibración depende del dispositivo y navegador.
 - Tommy guía desde un botón flotante en la esquina inferior derecha. La bienvenida, el inicio de cada nivel, las instrucciones del auditorio y las pistas se presentan en una pantalla que requiere confirmación antes de continuar.
 - Cada nivel desbloquea una insignia ilustrada con el modelo de Tommy correspondiente. Las insignias se conservan en el pasaporte asociado al registro y se pueden descargar como PNG al dispositivo.
-- La experiencia autenticada tiene navegación horizontal entre **Mis retos**, **Mi pasaporte** y **Mis insignias**. El pasaporte se muestra desbloqueado desde el inicio; Tommy lo presenta y la descarga de la tarjeta se habilita al terminar las diez misiones y las tres charlas.
+- La experiencia autenticada tiene navegación horizontal entre **Mis retos**, **Mi pasaporte** y **Mis insignias**. El pasaporte se muestra desbloqueado desde el inicio; Tommy lo presenta y la descarga de la tarjeta se habilita al terminar las diez misiones y la charla de líderes de programa.
 - La cabecera única combina el logo institucional, EVOLUCIONA-T, controles de sonido/vibración, Tommy Coins y el saludo del aspirante. En el registro, el formulario aparece inmediatamente debajo de la cabecera.
 - La identidad visual toma como referencia los colores del evento; el afiche se usó solo como referencia y no aparece en la página. El logo proviene de los [recursos gráficos institucionales](https://santototunja.edu.co/documentos-institucionales).
 - La fecha, el horario, el lugar y el enlace de autorización de datos se configuran en `server/src/config/event.json`.
@@ -99,15 +99,13 @@ El catálogo `otherPrograms` debe revisarse con Admisiones antes de abrir el eve
 
 ## Datos de prueba local
 
-Los códigos que vienen en `.env.example` son solamente para desarrollo. En la copia local `.env` puedes usar estos valores:
+El código que viene en `.env.example` es solamente para desarrollo. En la copia local `.env` puedes usar este valor:
 
 ```text
-DEMO-CHARLA-1
-DEMO-CHARLA-2
-DEMO-CHARLA-3
+DEMO-CHARLA-LIDERES
 ```
 
-Usa cada código únicamente en su charla correspondiente. Antes de un evento real, cámbialos por códigos distintos y privados para cada ponente.
+Usa el código únicamente en la charla de los líderes de programa. Antes de un evento real, cámbialo por un código privado.
 
 Para registrar un lead de prueba, usa por ejemplo:
 
@@ -145,22 +143,20 @@ Estas comprobaciones no sustituyen la validación del despliegue. Para probar la
 
 ## Prueba de carga de recorrido completo
 
-`scripts/k6-event-flow.js` simula asistentes que crean lead, completan los diez retos, registran las tres charlas y guardan su preferencia (15 solicitudes API por recorrido, 4.500 solicitudes con 300 VUs y una iteración cada uno). Ejecútalo solo contra staging o una base descartable; crea registros reales en la base configurada. `VUS=300` y `ITERATIONS_PER_VU=1` generan 300 usuarios virtuales concurrentes (no son 300 celulares físicos). Ejemplo para 300 asistentes:
+`scripts/k6-event-flow.js` simula asistentes que crean lead, completan los diez retos, registran la charla de líderes y guardan su preferencia (13 solicitudes API por recorrido, 3.900 solicitudes con 300 VUs y una iteración cada uno). Ejecútalo solo contra staging o una base descartable; crea registros reales en la base configurada. `VUS=300` y `ITERATIONS_PER_VU=1` generan 300 usuarios virtuales concurrentes (no son 300 celulares físicos). Ejemplo para 300 asistentes:
 
 ```cmd
 set BASE_URL=https://staging.example.edu
 set VUS=300
 set ITERATIONS_PER_VU=1
 set LOAD_TEST_PREFIX=evoluciona-load-2026
-set TALK_1_CODE=codigo-staging-charla-1
-set TALK_2_CODE=codigo-staging-charla-2
-set TALK_3_CODE=codigo-staging-charla-3
+set TALK_1_CODE=codigo-staging-charla-lideres
 k6 run scripts/k6-event-flow.js
 ```
 
 Usa códigos de staging privados y elimina únicamente los leads con el prefijo de la corrida cuando termines. No ejecutes esta prueba contra producción. Los umbrales configurados son menos de 1% de errores y p95 menor de 3 s; una corrida local no certifica el proveedor ni 300 dispositivos físicos.
 
-Validación local del 9 de noviembre de 2026: recorrido completo actual con diez retos, MariaDB 11.4 aislada y descartable, 300 VUs, 4.500 solicitudes, 100 % de checks exitosos, 0 errores HTTP y p95 de 1,17 s. Se eliminó la base temporal al terminar. Esta prueba mide el código y equipo local; no certifica la infraestructura de la Universidad, teléfonos físicos, ni el comportamiento de staging/producción. William debe repetirla en staging con la configuración acordada antes del evento.
+Validación local del 10 de noviembre de 2026: recorrido de charla única con diez retos, MariaDB 11.4 aislada y descartable, 300 VUs, 3.900 solicitudes, 100 % de checks exitosos y 0 errores HTTP. El p95 fue de 4,55 s, por encima del umbral configurado de 3 s; el flujo terminó correctamente, pero esta corrida no alcanza el objetivo de latencia y debe repetirse en condiciones estables y optimizarse antes del evento. La base temporal se eliminó. Esta prueba no certifica la infraestructura de la Universidad, teléfonos físicos, ni el comportamiento de staging/producción.
 
 ## Antes de producción
 

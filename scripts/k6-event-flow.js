@@ -3,7 +3,7 @@ import { check, sleep } from 'k6';
 
 const base = __ENV.BASE_URL || 'http://host.docker.internal:3001';
 const prefix = __ENV.LOAD_TEST_PREFIX || `load-${Date.now()}`;
-const talkCodes = [__ENV.TALK_1_CODE, __ENV.TALK_2_CODE, __ENV.TALK_3_CODE];
+const talkCode = __ENV.TALK_1_CODE;
 const games = [
   ['nutrition', 'plate-builder', ['arroz', 'frijoles', 'tomate']],
   ['nutrition', 'market-basket', ['lentejas', 'maiz', 'manzana']],
@@ -40,10 +40,8 @@ export default function () {
     response = post(`/challenges/${program}/${challenge}/complete`, { answer });
     if (!checked(response, 'reto guardado')) return;
   }
-  for (let index = 0; index < talkCodes.length; index++) {
-    response = post(`/talks/talk-${index + 1}/check-in`, { code: talkCodes[index] });
-    if (!checked(response, 'asistencia guardada')) return;
-  }
+  response = post('/talks/program-leaders/check-in', { code: talkCode });
+  if (!checked(response, 'asistencia registrada')) return;
   response = http.patch(`${base}/api/me/preference`, JSON.stringify({ program: 'Nutrición y Dietética' }), params);
   checked(response, 'preferencia guardada');
   sleep(0.1);

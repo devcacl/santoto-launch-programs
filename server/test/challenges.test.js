@@ -32,9 +32,12 @@ function invalidVariant(challenge, answer) {
   return null;
 }
 
-test('event configuration exposes the launch and three auditorium talks', () => {
+test('event configuration exposes the launch and the program leaders talk', () => {
   assert.equal(event.eventName, 'EVOLUCIONA-T');
-  assert.equal(event.talks.length, 3);
+  assert.equal(event.talks.length, 1);
+  assert.equal(event.talks[0].id, 'program-leaders');
+  assert.match(event.talks[0].speaker, /Luis Rafael Hutchison/);
+  assert.match(event.talks[0].speaker, /Esperanza Díaz Casallas/);
   assert.match(event.privacyUrl, /^https:\/\//);
   assert.equal(new Set(event.programs.map((program) => program.id)).size, event.programs.length);
 });
