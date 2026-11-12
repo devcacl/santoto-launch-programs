@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { pool, query, initializeDatabase } from './db.js';
 import { requireAdmin, signAdminSession, signSession, verifySession } from './security.js';
 import { validChallengeAnswer } from './challenges.js';
+import { filterConfiguredTalkAttendance } from './progress.js';
 
 const app = express();
 const config = JSON.parse(await readFile(new URL('./config/event.json', import.meta.url), 'utf8'));
@@ -82,7 +83,7 @@ async function getProgress(id) {
     query('SELECT talk_id, checked_in_at FROM talk_attendance WHERE participant_id = $1', [id]),
   ]);
   const completedChallenges = challenges.rows;
-  const completedTalks = talks.rows;
+  const completedTalks = filterConfiguredTalkAttendance(talks.rows, config.talks);
   const auditoriumBadge = config.talks.length > 0 && config.talks.every((talk) => completedTalks.some((row) => row.talk_id === talk.id));
   const coins = completedChallenges.length * config.gamification.coinsPerChallenge
     + completedTalks.length * config.gamification.coinsPerTalk

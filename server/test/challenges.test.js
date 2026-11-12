@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { validChallengeAnswer } from '../src/challenges.js';
+import { filterConfiguredTalkAttendance } from '../src/progress.js';
 
 const event = JSON.parse(await readFile(new URL('../src/config/event.json', import.meta.url), 'utf8'));
 const acceptedAnswers = new Map([
@@ -55,4 +56,13 @@ for (const program of event.programs) {
 
 test('unknown challenge types fail closed', () => {
   assert.equal(validChallengeAnswer({ type: 'unknown', items: [], rules: {} }, {}), false);
+});
+
+test('progress ignores attendance from talks removed from the event config', () => {
+  const attendance = [
+    { talk_id: 'talk-1' },
+    { talk_id: 'talk-2' },
+    { talk_id: 'program-leaders' },
+  ];
+  assert.deepEqual(filterConfiguredTalkAttendance(attendance, event.talks), [{ talk_id: 'program-leaders' }]);
 });
